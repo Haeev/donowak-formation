@@ -24,48 +24,66 @@ export async function POST(request: Request) {
     
     console.log('Tentative de suppression du compte utilisateur:', user.id);
     
-    // Utiliser le client admin avec la clé de service pour supprimer l'utilisateur
+    // 1. D'abord supprimer les données associées à l'utilisateur dans les tables
+    try {
+      // Supprimer les données de la table profiles
+      const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
+        
+      if (profileError) {
+        console.log('Erreur lors de la suppression du profil:', profileError);
+      }
+      
+      // Supprimer les données des autres tables liées à l'utilisateur
+      // Par exemple: user_formations, user_progress, certificates, etc.
+      const { error: userFormationsError } = await supabaseAdmin
+        .from('user_formations')
+        .delete()
+        .eq('user_id', user.id);
+        
+      if (userFormationsError) {
+        console.log('Erreur lors de la suppression des formations utilisateur:', userFormationsError);
+      }
+      
+      const { error: userProgressError } = await supabaseAdmin
+        .from('user_progress')
+        .delete()
+        .eq('user_id', user.id);
+        
+      if (userProgressError) {
+        console.log('Erreur lors de la suppression des progrès utilisateur:', userProgressError);
+      }
+      
+      const { error: certificatesError } = await supabaseAdmin
+        .from('certificates')
+        .delete()
+        .eq('user_id', user.id);
+        
+      if (certificatesError) {
+        console.log('Erreur lors de la suppression des certificats:', certificatesError);
+      }
+    } catch (dataError) {
+      console.error('Erreur lors de la suppression des données utilisateur:', dataError);
+    }
+    
+    // 2. Ensuite supprimer l'utilisateur de la table auth
     const { error } = await supabaseAdmin.auth.admin.deleteUser(user.id);
     
     if (error) {
       console.error('Erreur lors de la suppression du compte avec la clé de service:', error);
       
-      // Approche alternative si la suppression directe échoue
-      try {
-        // 1. Supprimer les données associées à l'utilisateur dans d'autres tables
-        // Par exemple, si vous avez des tables personnalisées liées à l'utilisateur
-        
-        // Exemple pour une table 'profiles' si elle existe
-        const { error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .delete()
-          .eq('id', user.id);
-          
-        if (profileError) {
-          console.log('Note: Pas de table profiles ou erreur:', profileError);
-        }
-        
-        // 2. Désactiver l'utilisateur si on ne peut pas le supprimer
-        // Cette opération nécessite des droits SQL directs que nous n'avons pas ici
-        // Mais nous pouvons essayer de mettre à jour certains champs pour "désactiver" l'utilisateur
-        
-        // 3. Déconnecter l'utilisateur
-        await supabase.auth.signOut();
-        
-        return NextResponse.json(
-          { 
-            message: 'Nous n\'avons pas pu supprimer complètement votre compte, mais vous avez été déconnecté. Veuillez contacter l\'administrateur.',
-            partial: true 
-          },
-          { status: 200 }
-        );
-      } catch (alternativeError) {
-        console.error('Erreur lors de l\'approche alternative:', alternativeError);
-        return NextResponse.json(
-          { error: 'Erreur lors de la suppression des données utilisateur' },
-          { status: 500 }
-        );
-      }
+      // Si la suppression échoue, on déconnecte quand même l'utilisateur
+      await supabase.auth.signOut();
+      
+      return NextResponse.json(
+        { 
+          message: 'Nous n\'avons pas pu supprimer complètement votre compte, mais vous avez été déconnecté. Veuillez contacter l\'administrateur.',
+          partial: true 
+        },
+        { status: 200 }
+      );
     }
     
     console.log('Compte utilisateur supprimé avec succès:', user.id);
@@ -73,9 +91,17 @@ export async function POST(request: Request) {
     // Déconnecter l'utilisateur après la suppression réussie
     await supabase.auth.signOut();
     
-    return NextResponse.json(
-      { message: 'Votre compte a été supprimé avec succès' },
-      { status: 200 }
+    // Définir des cookies d'expiration pour forcer la déconnexion côté client
+    const headers = new Headers();
+    headers.append('Set-Cookie', 'sb-access-token=; Max-Age=0; Path=/; HttpOnly');
+    headers.append('Set-Cookie', 'sb-refresh-token=; Max-Age=0; Path=/; HttpOnly');
+    
+    return new NextResponse(
+      JSON.stringify({ message: 'Votre compte a été supprimé avec succès' }),
+      { 
+        status: 200,
+        headers
+      }
     );
   } catch (error: any) {
     console.error('Erreur lors de la suppression du compte:', error);

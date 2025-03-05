@@ -48,9 +48,18 @@ export default function DashboardPage() {
         throw new Error(data.error || 'Une erreur est survenue lors de la suppression du compte');
       }
 
-      // Rediriger vers la page d'accueil
-      router.push('/?message=Votre compte a été supprimé avec succès');
-      router.refresh();
+      // Déconnecter l'utilisateur localement
+      await supabase.auth.signOut();
+      
+      // Effacer les cookies et le stockage local
+      document.cookie.split(";").forEach(function(c) {
+        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // Rediriger vers la page d'accueil avec un rechargement complet
+      window.location.href = '/?message=Votre compte a été supprimé avec succès';
     } catch (error: any) {
       setError(error.message || 'Une erreur est survenue lors de la suppression du compte');
       setDeleting(false);

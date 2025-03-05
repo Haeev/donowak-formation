@@ -43,6 +43,25 @@ export default function RegisterForm() {
     setError(null);
 
     try {
+      // Vérifier si l'email existe déjà
+      const { data: existingUsers, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', data.email)
+        .limit(1);
+
+      if (checkError) {
+        setError(checkError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (existingUsers && existingUsers.length > 0) {
+        setError('Un compte avec cet email existe déjà. Veuillez vous connecter ou utiliser un autre email.');
+        setIsLoading(false);
+        return;
+      }
+
       // Inscription avec Supabase Auth
       const { error: signUpError, data: authData } = await supabase.auth.signUp({
         email: data.email,
