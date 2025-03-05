@@ -49,8 +49,7 @@ export default function RegisterForm() {
         password: data.password,
         options: {
           data: {
-            first_name: data.firstName,
-            last_name: data.lastName,
+            full_name: `${data.firstName} ${data.lastName}`,
           },
         },
       });
@@ -63,12 +62,11 @@ export default function RegisterForm() {
       // Créer l'entrée dans la table users
       if (authData.user) {
         const { error: profileError } = await supabase
-          .from('users')
+          .from('profiles')
           .insert({
             id: authData.user.id,
             email: data.email,
-            first_name: data.firstName,
-            last_name: data.lastName,
+            full_name: `${data.firstName} ${data.lastName}`,
             role: 'user',
           });
 

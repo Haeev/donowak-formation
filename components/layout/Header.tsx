@@ -25,7 +25,7 @@ export default function Header() {
       
       if (data.session) {
         const { data: userData } = await supabase
-          .from('users')
+          .from('profiles')
           .select('role')
           .eq('id', data.session.user.id)
           .single();

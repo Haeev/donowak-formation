@@ -36,7 +36,7 @@ export default function ProfilePage() {
       
       // Récupérer les informations de l'utilisateur
       const { data: userData, error: userError } = await supabase
-        .from('users')
+        .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
@@ -78,7 +78,7 @@ export default function ProfilePage() {
       );
       
       const { error } = await supabase
-        .from('users')
+        .from('profiles')
         .update({
           full_name: formData.full_name,
           phone: formData.phone,
