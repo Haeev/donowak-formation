@@ -10,8 +10,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
+    full_name: '',
     email: '',
     phone: '',
     bio: ''
@@ -50,8 +49,7 @@ export default function ProfilePage() {
       
       setUser(userData);
       setFormData({
-        first_name: userData.first_name || '',
-        last_name: userData.last_name || '',
+        full_name: userData.full_name || '',
         email: userData.email || session.user.email || '',
         phone: userData.phone || '',
         bio: userData.bio || ''
@@ -82,8 +80,7 @@ export default function ProfilePage() {
       const { error } = await supabase
         .from('users')
         .update({
-          first_name: formData.first_name,
-          last_name: formData.last_name,
+          full_name: formData.full_name,
           phone: formData.phone,
           bio: formData.bio,
           updated_at: new Date().toISOString()
@@ -142,31 +139,15 @@ export default function ProfilePage() {
 
             <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="first_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Prénom
+                <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Nom complet
                 </label>
                 <div className="mt-1">
                   <input
                     type="text"
-                    name="first_name"
-                    id="first_name"
-                    value={formData.first_name}
-                    onChange={handleChange}
-                    className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="last_name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Nom
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="text"
-                    name="last_name"
-                    id="last_name"
-                    value={formData.last_name}
+                    name="full_name"
+                    id="full_name"
+                    value={formData.full_name}
                     onChange={handleChange}
                     className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md"
                   />

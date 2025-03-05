@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Database } from '@/types/database.types';
 
-type User = Database['public']['Tables']['users']['Row'];
+type User = Database['public']['Tables']['profiles']['Row'];
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -113,12 +113,12 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                 <div className="flex items-center">
                   <div>
                     <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-300 text-xl font-semibold">
-                      {user?.first_name?.[0] || user?.email?.[0] || '?'}
+                      {user?.full_name?.[0] || user?.email?.[0] || '?'}
                     </div>
                   </div>
                   <div className="ml-3">
                     <p className="text-base font-medium text-gray-700 dark:text-gray-300">
-                      {user?.first_name} {user?.last_name}
+                      {user?.full_name}
                     </p>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">
                       {user?.email}
@@ -174,12 +174,12 @@ export default function DashboardLayout({ children, user }: DashboardLayoutProps
                 <div className="flex items-center">
                   <div>
                     <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center text-gray-700 dark:text-gray-300 text-xl font-semibold">
-                      {user?.first_name?.[0] || user?.email?.[0] || '?'}
+                      {user?.full_name?.[0] || user?.email?.[0] || '?'}
                     </div>
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {user?.first_name} {user?.last_name}
+                      {user?.full_name}
                     </p>
                     <p className="text-xs font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">
                       {user?.email}

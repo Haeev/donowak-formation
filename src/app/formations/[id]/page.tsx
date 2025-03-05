@@ -24,10 +24,9 @@ export default async function FormationPage({
     .from('formations')
     .select(`
       *,
-      users (
+      profiles (
         id,
-        first_name,
-        last_name,
+        full_name,
         email
       )
     `)
@@ -57,8 +56,8 @@ export default async function FormationPage({
     : formation.content;
   
   // Formater le nom de l'auteur
-  const authorName = formation.users 
-    ? `${formation.users.first_name || ''} ${formation.users.last_name || ''}`.trim() || formation.users.email
+  const authorName = formation.profiles 
+    ? formation.profiles.full_name || formation.profiles.email
     : 'Auteur inconnu';
   
   return (

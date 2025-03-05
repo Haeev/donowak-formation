@@ -1,6 +1,6 @@
 import { Database } from '@/types/database.types';
 
-type User = Database['public']['Tables']['users']['Row'];
+type User = Database['public']['Tables']['profiles']['Row'];
 type Formation = Database['public']['Tables']['formations']['Row'];
 type Certificate = Database['public']['Tables']['certificates']['Row'];
 
