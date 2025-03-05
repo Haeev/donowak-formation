@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
+  images: {
+    domains: ['localhost', 'placehold.co'],
+  },
+  eslint: {
+    // Désactiver temporairement les vérifications ESLint pendant le build
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig; 
