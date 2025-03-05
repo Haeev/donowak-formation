@@ -1,0 +1,78 @@
+# SUIVI DU PROJET DONOWAK FORMATION
+# Ce fichier ne sera pas partagé sur GitHub - Usage interne uniquement
+
+## STACK TECHNIQUE
+- [OK] Frontend : Next.js (React, TypeScript) avec Tailwind CSS
+- [  ] Backend : Next.js API Routes pour gérer les requêtes serveur
+- [  ] Base de données : Supabase (PostgreSQL) - Structure complète
+- [OK] Authentification : Supabase Auth (email/mot de passe)
+- [  ] Authentification : Gestion des rôles (utilisateur, administrateur)
+- [  ] Paiements : Stripe (paiements uniques, abonnements, formations gratuites)
+- [OK] Déploiement : Vercel (lié à GitHub)
+- [  ] Stockage des médias : Supabase Storage (vidéos, images)
+- [  ] Éditeur WYSIWYG pour formations et blog
+- [  ] CMS intégré dans le dashboard admin
+
+## FEATURES UTILISATEURS
+- [OK] Inscription via Supabase Auth
+- [OK] Connexion via Supabase Auth
+- [OK] Confirmation d'email
+- [OK] Suppression de compte
+- [  ] Dashboard personnel
+- [  ] Voir et modifier son profil (nom, prénom, bio, photo, etc.)
+- [  ] Accéder à la liste des formations disponibles
+- [  ] Voir les formations achetées
+- [  ] Suivre la progression des formations
+- [  ] Télécharger les certificats après avoir complété une formation
+- [  ] Laisser un avis/commentaire sur une formation terminée
+
+## FEATURES ADMINISTRATEURS
+- [  ] Dashboard Admin
+- [  ] Gestion des utilisateurs (voir profils, suspendre, supprimer)
+- [  ] Création des formations
+- [  ] Modification des formations
+- [  ] Suppression des formations
+- [  ] Éditeur intuitif pour créer une formation (texte, images, vidéos, quiz, exercices)
+- [  ] Définition des prix des formations (fixe, abonnement, gratuit)
+- [  ] Suivi des statistiques du site
+- [  ] Modification des pages du site via CMS intégré
+- [  ] Gestion du blog (création, modification, suppression, publication)
+
+## STRUCTURE DE LA BASE DE DONNÉES
+- [OK] Table users de base (Supabase Auth)
+- [  ] Extension de la table users (rôle, nom, prénom, bio, photo)
+- [  ] Table formations
+- [  ] Table progressions
+- [  ] Table certificats
+- [  ] Table commentaires
+- [  ] Table transactions
+- [  ] Table blog_articles
+
+## DÉVELOPPEMENT & WORKFLOW
+- [OK] Initialiser le projet avec Next.js, Tailwind et TypeScript
+- [OK] Mettre en place Supabase Auth (email/password)
+- [  ] Créer la structure complète de la base de données
+- [  ] Mettre en place Stripe pour les paiements
+- [  ] Développer le Dashboard Utilisateur
+- [  ] Développer le Dashboard Admin
+- [  ] Créer le CMS pour les pages du site
+- [  ] Mettre en place le système de commentaires et avis
+- [  ] Implémenter les statistiques pour les admins
+- [OK] Déployer sur GitHub + Vercel
+
+## FONCTIONNALITÉS SPÉCIFIQUES
+- [  ] Système de paiement Stripe complet
+- [  ] Éditeur WYSIWYG fonctionnel
+- [  ] Système de progression des formations
+- [  ] Génération de certificats
+- [  ] Statistiques détaillées
+- [  ] Blog avec système de publication
+- [  ] Tests unitaires sur les fonctions critiques
+- [  ] Optimisation des performances (lazy loading, requêtes SQL, cache)
+
+## NOTES ET PRIORITÉS
+1. Étendre la structure utilisateur et finaliser la base de données
+2. Développer le dashboard utilisateur basique
+3. Intégrer Stripe pour les paiements
+4. Développer le dashboard administrateur
+5. Implémenter le CMS et l'éditeur WYSIWYG 
