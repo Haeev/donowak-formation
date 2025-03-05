@@ -56,16 +56,31 @@ export async function updateSession(request: NextRequest) {
   );
 
   // Vérifier si l'utilisateur est authentifié
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
 
-  // Rediriger les utilisateurs non authentifiés qui tentent d'accéder au tableau de bord
+  // Obtenir l'URL actuelle
   const url = new URL(request.url);
-  if (!user && url.pathname.startsWith('/dashboard')) {
+  const path = url.pathname;
+
+  // Routes protégées qui nécessitent une authentification
+  const protectedRoutes = ['/dashboard', '/admin'];
+  
+  // Routes d'authentification (login, register) qui ne devraient pas être accessibles si déjà connecté
+  const authRoutes = ['/auth/login', '/auth/register'];
+  
+  // Vérifier si l'utilisateur tente d'accéder à une route protégée
+  const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
+  
+  // Vérifier si l'utilisateur tente d'accéder à une route d'authentification
+  const isAuthRoute = authRoutes.some(route => path.startsWith(route));
+
+  // Rediriger les utilisateurs non authentifiés qui tentent d'accéder à une route protégée
+  if (!session && isProtectedRoute) {
     return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
   // Rediriger les utilisateurs authentifiés qui tentent d'accéder aux pages d'authentification
-  if (user && (url.pathname.startsWith('/auth/login') || url.pathname.startsWith('/auth/register'))) {
+  if (session && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

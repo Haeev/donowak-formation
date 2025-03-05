@@ -2,40 +2,78 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-import { Database } from '@/types/database.types';
+import { usePathname, useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
+  const router = useRouter();
+  const supabase = createClient();
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = createBrowserClient<Database>(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      
-      const { data } = await supabase.auth.getSession();
-      setIsLoggedIn(!!data.session);
-      
-      if (data.session) {
-        const { data: userData } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.session.user.id)
-          .single();
+      setIsLoading(true);
+      try {
+        const { data } = await supabase.auth.getSession();
         
-        setIsAdmin(userData?.role === 'admin');
+        setIsLoggedIn(!!data.session);
+        
+        if (data.session) {
+          const { data: userData } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', data.session.user.id)
+            .single();
+          
+          setIsAdmin(userData?.role === 'admin');
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la vérification de l\'authentification:', error);
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+      } finally {
+        setIsLoading(false);
       }
     };
     
     checkAuth();
-  }, []);
+
+    // Écouter les changements d'authentification
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setIsLoggedIn(!!session);
+        
+        if (session) {
+          const { data: userData } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          
+          setIsAdmin(userData?.role === 'admin');
+        } else {
+          setIsAdmin(false);
+        }
+      }
+    );
+    
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [supabase]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/');
+    router.refresh();
+  };
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -88,7 +126,11 @@ export default function Header() {
           </div>
           <div className="hidden md:ml-6 md:flex md:items-center md:space-x-4">
             <ThemeToggle />
-            {isLoggedIn ? (
+            {isLoading ? (
+              <div className="px-3 py-2 rounded-md text-sm font-medium text-gray-400">
+                Chargement...
+              </div>
+            ) : isLoggedIn ? (
               <>
                 {isAdmin && (
                   <Link
@@ -104,12 +146,12 @@ export default function Header() {
                 >
                   Mon espace
                 </Link>
-                <Link
-                  href="/auth/logout"
+                <button
+                  onClick={handleLogout}
                   className="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   Déconnexion
-                </Link>
+                </button>
               </>
             ) : (
               <>
@@ -216,7 +258,11 @@ export default function Header() {
           </div>
           <div className="pt-4 pb-3 border-t border-gray-200 dark:border-gray-700">
             <div className="space-y-1">
-              {isLoggedIn ? (
+              {isLoading ? (
+                <div className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-400">
+                  Chargement...
+                </div>
+              ) : isLoggedIn ? (
                 <>
                   {isAdmin && (
                     <Link
@@ -234,13 +280,15 @@ export default function Header() {
                   >
                     Mon espace
                   </Link>
-                  <Link
-                    href="/auth/logout"
-                    className="block pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:text-gray-800 dark:hover:text-gray-200"
-                    onClick={closeMenu}
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      closeMenu();
+                    }}
+                    className="block w-full text-left pl-3 pr-4 py-2 border-l-4 border-transparent text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:text-gray-800 dark:hover:text-gray-200"
                   >
                     Déconnexion
-                  </Link>
+                  </button>
                 </>
               ) : (
                 <>
