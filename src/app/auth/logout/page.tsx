@@ -15,15 +15,20 @@ export default function LogoutPage() {
         console.log('Déconnexion en cours...');
         setIsLoading(true);
         
-        // Vérifier si l'utilisateur est connecté
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('Session avant déconnexion:', session ? 'Présente' : 'Absente');
+        // Nettoyer le localStorage
+        localStorage.removeItem('donowak_user');
+        console.log('Données utilisateur supprimées du localStorage');
         
-        // Déconnecter l'utilisateur
+        // Nettoyer les cookies
+        document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax; secure';
+        document.cookie = 'sb-refresh-token=; path=/; max-age=0; SameSite=Lax; secure';
+        console.log('Cookies d\'authentification supprimés');
+        
+        // Déconnecter l'utilisateur de Supabase
         const { error } = await supabase.auth.signOut();
         
         if (error) {
-          console.error('Erreur lors de la déconnexion:', error.message);
+          console.error('Erreur lors de la déconnexion Supabase:', error.message);
           setError(error.message);
           setIsLoading(false);
           return;

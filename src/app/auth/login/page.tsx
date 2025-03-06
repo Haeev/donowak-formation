@@ -9,19 +9,13 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
-  // Vérifier si l'utilisateur est déjà connecté
+  // Vérifier si l'utilisateur est déjà connecté via localStorage
   useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient();
-      const { data } = await supabase.auth.getSession();
-      
-      if (data.session) {
-        console.log("Utilisateur déjà connecté, redirection vers le tableau de bord");
-        window.location.href = '/dashboard';
-      }
-    };
-    
-    checkAuth();
+    const userData = localStorage.getItem('donowak_user');
+    if (userData) {
+      console.log("Utilisateur trouvé dans localStorage, redirection vers le tableau de bord");
+      window.location.href = '/dashboard';
+    }
   }, []);
 
   return (
@@ -83,20 +77,26 @@ function LoginForm() {
       console.log("Connexion réussie, session créée pour:", data.user?.id);
       setSuccessMessage("Connexion réussie! Redirection en cours...");
       
-      // Définir manuellement les cookies pour s'assurer qu'ils sont correctement définis
+      // Stocker les informations de l'utilisateur dans localStorage
+      const userData = {
+        id: data.user.id,
+        email: data.user.email,
+        session: {
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          expires_at: Math.floor(Date.now() / 1000) + data.session.expires_in
+        }
+      };
+      
+      localStorage.setItem('donowak_user', JSON.stringify(userData));
+      
+      // Définir manuellement les cookies pour Supabase
       document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax; secure`;
       document.cookie = `sb-refresh-token=${data.session.refresh_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax; secure`;
       
-      // Stocker également dans le localStorage pour une double sécurité
-      localStorage.setItem('supabase.auth.token', JSON.stringify({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-        expires_at: Math.floor(Date.now() / 1000) + data.session.expires_in
-      }));
-      
-      // Attendre un court instant pour que les cookies soient correctement définis
+      // Attendre un court instant pour que tout soit bien enregistré
       setTimeout(() => {
-        // Forcer un rechargement complet de la page pour s'assurer que les cookies sont bien pris en compte
+        // Forcer un rechargement complet de la page
         window.location.href = '/dashboard';
       }, 1500);
       

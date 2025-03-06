@@ -15,8 +15,19 @@ interface UserFormation extends Formation {
   progress: number;
 }
 
+// Type pour les données utilisateur stockées dans localStorage
+interface StoredUserData {
+  id: string;
+  email: string;
+  session: {
+    access_token: string;
+    refresh_token: string;
+    expires_at: number;
+  };
+}
+
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<StoredUserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userFormations, setUserFormations] = useState<UserFormation[]>([]);
@@ -26,35 +37,54 @@ export default function DashboardPage() {
 
   // Vérifier l'authentification au chargement de la page
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuth = () => {
       try {
-        console.log("Vérification de l'authentification...");
+        console.log("Vérification de l'authentification via localStorage...");
         
-        // Vérifier les cookies manuellement
-        const cookies = document.cookie.split(';').map(cookie => cookie.trim());
-        const hasAccessToken = cookies.some(cookie => cookie.startsWith('sb-access-token='));
-        const hasRefreshToken = cookies.some(cookie => cookie.startsWith('sb-refresh-token='));
+        // Récupérer les données utilisateur depuis localStorage
+        const storedUserData = localStorage.getItem('donowak_user');
         
-        console.log('Cookies d\'authentification:', hasAccessToken && hasRefreshToken ? 'Présents' : 'Absents');
-        
-        // Vérifier la session
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          throw new Error(`Erreur de session: ${sessionError.message}`);
-        }
-        
-        if (!sessionData.session) {
-          console.log("Aucune session trouvée, redirection vers la page de connexion");
-          window.location.href = '/auth/login';
+        if (!storedUserData) {
+          console.log("Aucune donnée utilisateur trouvée dans localStorage");
+          setError("Vous n'êtes pas connecté. Veuillez vous connecter pour accéder à votre tableau de bord.");
+          setLoading(false);
+          
+          // Rediriger vers la page de connexion après 2 secondes
+          setTimeout(() => {
+            window.location.href = '/auth/login';
+          }, 2000);
           return;
         }
         
-        console.log("Session trouvée pour l'utilisateur:", sessionData.session.user.id);
-        setUser(sessionData.session.user);
+        // Parser les données utilisateur
+        const userData: StoredUserData = JSON.parse(storedUserData);
+        console.log("Données utilisateur trouvées pour:", userData.email);
+        
+        // Vérifier si la session a expiré
+        if (userData.session.expires_at < Math.floor(Date.now() / 1000)) {
+          console.log("Session expirée, redirection vers la page de connexion");
+          localStorage.removeItem('donowak_user');
+          setError("Votre session a expiré. Veuillez vous reconnecter.");
+          setLoading(false);
+          
+          // Rediriger vers la page de connexion après 2 secondes
+          setTimeout(() => {
+            window.location.href = '/auth/login';
+          }, 2000);
+          return;
+        }
+        
+        // Définir l'utilisateur
+        setUser(userData);
+        
+        // Configurer le client Supabase avec le token d'accès
+        supabase.auth.setSession({
+          access_token: userData.session.access_token,
+          refresh_token: userData.session.refresh_token
+        });
         
         // Charger les formations de l'utilisateur
-        await fetchUserFormations(sessionData.session.user.id);
+        fetchUserFormations(userData.id);
         
         setLoading(false);
       } catch (error) {
@@ -62,10 +92,10 @@ export default function DashboardPage() {
         setError("Une erreur est survenue lors du chargement du tableau de bord. Veuillez vous reconnecter.");
         setLoading(false);
         
-        // Rediriger vers la page de connexion après 3 secondes
+        // Rediriger vers la page de connexion après 2 secondes
         setTimeout(() => {
           window.location.href = '/auth/login';
-        }, 3000);
+        }, 2000);
       }
     };
     
@@ -76,12 +106,12 @@ export default function DashboardPage() {
         setLoading(false);
         setError("Le chargement a pris trop de temps. Veuillez rafraîchir la page ou vous reconnecter.");
         
-        // Rediriger vers la page de connexion après 3 secondes
+        // Rediriger vers la page de connexion après 2 secondes
         setTimeout(() => {
           window.location.href = '/auth/login';
-        }, 3000);
+        }, 2000);
       }
-    }, 10000); // 10 secondes maximum
+    }, 5000); // 5 secondes maximum
     
     checkAuth();
     
@@ -114,60 +144,65 @@ export default function DashboardPage() {
 
       console.log("Formations récupérées:", userFormationsData ? userFormationsData.length : 0);
 
+      // Si aucune formation n'est trouvée, terminer le chargement
+      if (!userFormationsData || userFormationsData.length === 0) {
+        setUserFormations([]);
+        setFormationsLoading(false);
+        return;
+      }
+
       // Récupérer la progression de l'utilisateur pour chaque formation
       const formationsWithProgress: UserFormation[] = [];
       
-      if (userFormationsData && userFormationsData.length > 0) {
-        for (const item of userFormationsData) {
-          if (item.formations) {
-            // Conversion explicite du type any à Formation
-            const formation = item.formations as unknown as Formation;
-            
-            // Récupérer les leçons de cette formation
-            const { data: chaptersData } = await supabase
-              .from('chapters')
-              .select(`
-                id,
-                lessons (id)
-              `)
-              .eq('formation_id', formation.id);
-            
-            // Calculer le nombre total de leçons
-            let totalLessons = 0;
-            let completedLessons = 0;
-            
-            if (chaptersData && chaptersData.length > 0) {
-              for (const chapter of chaptersData) {
-                if (chapter.lessons && Array.isArray(chapter.lessons)) {
-                  totalLessons += chapter.lessons.length;
+      for (const item of userFormationsData) {
+        if (item.formations) {
+          // Conversion explicite du type any à Formation
+          const formation = item.formations as unknown as Formation;
+          
+          // Récupérer les leçons de cette formation
+          const { data: chaptersData } = await supabase
+            .from('chapters')
+            .select(`
+              id,
+              lessons (id)
+            `)
+            .eq('formation_id', formation.id);
+          
+          // Calculer le nombre total de leçons
+          let totalLessons = 0;
+          let completedLessons = 0;
+          
+          if (chaptersData && chaptersData.length > 0) {
+            for (const chapter of chaptersData) {
+              if (chapter.lessons && Array.isArray(chapter.lessons)) {
+                totalLessons += chapter.lessons.length;
+                
+                // Récupérer les leçons complétées
+                for (const lesson of chapter.lessons) {
+                  const { data: progressData } = await supabase
+                    .from('user_progress')
+                    .select('completed')
+                    .eq('user_id', userId)
+                    .eq('lesson_id', lesson.id)
+                    .single();
                   
-                  // Récupérer les leçons complétées
-                  for (const lesson of chapter.lessons) {
-                    const { data: progressData } = await supabase
-                      .from('user_progress')
-                      .select('completed')
-                      .eq('user_id', userId)
-                      .eq('lesson_id', lesson.id)
-                      .single();
-                    
-                    if (progressData && progressData.completed) {
-                      completedLessons++;
-                    }
+                  if (progressData && progressData.completed) {
+                    completedLessons++;
                   }
                 }
               }
             }
-            
-            // Calculer le pourcentage de progression
-            const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-            const completed = progress === 100;
-            
-            formationsWithProgress.push({
-              ...formation,
-              progress,
-              completed
-            });
           }
+          
+          // Calculer le pourcentage de progression
+          const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+          const completed = progress === 100;
+          
+          formationsWithProgress.push({
+            ...formation,
+            progress,
+            completed
+          });
         }
       }
       
@@ -224,7 +259,12 @@ export default function DashboardPage() {
       <h1 className="text-3xl font-bold mb-6">Votre tableau de bord</h1>
       
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <h2 className="text-xl font-semibold mb-4">Vos formations</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">Vos formations</h2>
+          <div className="text-sm text-gray-500">
+            Connecté en tant que: {user?.email}
+          </div>
+        </div>
         
         {formationsLoading ? (
           <div className="flex justify-center py-8">
