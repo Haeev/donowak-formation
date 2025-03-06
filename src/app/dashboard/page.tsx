@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Database } from '@/types/database.types';
+import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 type Formation = Database['public']['Tables']['formations']['Row'];
 
@@ -22,26 +24,126 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [userFormations, setUserFormations] = useState<UserFormation[]>([]);
   const [formationsLoading, setFormationsLoading] = useState(true);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
+  // Fonction pour définir un timeout sur le chargement
+  const setLoadingWithTimeout = (loading: boolean) => {
+    if (loading) {
+      setLoading(true);
+      // Définir un timeout pour éviter un chargement infini
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      loadingTimeoutRef.current = setTimeout(() => {
+        console.log('Timeout de chargement atteint, réinitialisation de l\'état');
+        setLoading(false);
+        setError('Le chargement a pris trop de temps. Veuillez rafraîchir la page ou vous reconnecter.');
+      }, 8000); // 8 secondes maximum de chargement
+    } else {
+      setLoading(false);
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    }
+  };
+
   useEffect(() => {
     async function getUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      setLoading(false);
-      
-      if (user) {
-        fetchUserFormations(user.id);
+      try {
+        console.log("Tentative de récupération de l'utilisateur...");
+        setLoadingWithTimeout(true);
+        
+        // Vérifier la session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        console.log("Session:", sessionData.session ? "Trouvée" : "Non trouvée");
+        
+        if (sessionError) {
+          throw new Error(`Erreur de session: ${sessionError.message}`);
+        }
+        
+        if (!sessionData.session) {
+          // Essayer de récupérer l'utilisateur directement
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          console.log("Utilisateur:", userData.user ? "Trouvé" : "Non trouvé");
+          
+          if (userError) {
+            throw new Error(`Erreur utilisateur: ${userError.message}`);
+          }
+          
+          if (!userData.user) {
+            console.log("Aucun utilisateur trouvé, redirection vers la page de connexion");
+            setLoadingWithTimeout(false);
+            // Utiliser window.location pour un rechargement complet
+            window.location.href = '/auth/login';
+            return;
+          }
+          
+          setUser(userData.user);
+        } else {
+          setUser(sessionData.session.user);
+        }
+        
+        setLoadingWithTimeout(false);
+      } catch (error) {
+        console.error("Erreur lors de la récupération de l'utilisateur:", error);
+        setLoadingWithTimeout(false);
+        setError("Une erreur est survenue lors du chargement du tableau de bord. Veuillez vous reconnecter.");
+        // Rediriger vers la page de connexion après 3 secondes en cas d'erreur
+        setTimeout(() => {
+          window.location.href = '/auth/login';
+        }, 3000);
       }
     }
 
     getUser();
+    
+    // Écouter les changements d'authentification
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Événement d\'authentification dans le dashboard:', event);
+        
+        if (event === 'SIGNED_OUT') {
+          console.log('Utilisateur déconnecté, redirection vers la page d\'accueil');
+          window.location.href = '/';
+          return;
+        }
+        
+        if (session) {
+          console.log('Session mise à jour, utilisateur:', session.user.id);
+          setUser(session.user);
+          fetchUserFormations(session.user.id);
+        } else if (event !== 'INITIAL_SESSION') {
+          // Si pas de session et ce n'est pas l'événement initial, rediriger vers la connexion
+          console.log('Pas de session, redirection vers la page de connexion');
+          window.location.href = '/auth/login';
+        }
+      }
+    );
+    
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      authListener?.subscription.unsubscribe();
+    };
   }, [supabase]);
+
+  // Effet pour charger les formations une fois que l'utilisateur est défini
+  useEffect(() => {
+    if (user && user.id) {
+      console.log("Utilisateur défini, chargement des formations pour:", user.id);
+      fetchUserFormations(user.id);
+    }
+  }, [user]);
 
   const fetchUserFormations = async (userId: string) => {
     setFormationsLoading(true);
     try {
+      console.log("Récupération des formations pour l'utilisateur:", userId);
+      
       // Récupérer les formations achetées par l'utilisateur
       const { data: userFormationsData, error: userFormationsError } = await supabase
         .from('user_formations')
@@ -56,6 +158,8 @@ export default function DashboardPage() {
         setFormationsLoading(false);
         return;
       }
+
+      console.log("Formations récupérées:", userFormationsData ? userFormationsData.length : 0);
 
       // Récupérer la progression de l'utilisateur pour chaque formation
       const formationsWithProgress: UserFormation[] = [];
@@ -172,11 +276,22 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center py-12 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Chargement...
-          </h2>
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg">Chargement de votre tableau de bord...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg max-w-md w-full text-center">
+          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Erreur</h2>
+          <p className="mb-6">{error}</p>
+          <Button asChild>
+            <Link href="/auth/login">Se reconnecter</Link>
+          </Button>
         </div>
       </div>
     );

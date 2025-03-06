@@ -1,39 +1,85 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import ThemeToggle from '@/components/theme/ThemeToggle';
+import { Loader2 } from 'lucide-react';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
 
+  // Fonction pour définir un timeout sur le chargement
+  const setLoadingWithTimeout = (loading: boolean) => {
+    if (loading) {
+      setIsLoading(true);
+      // Définir un timeout pour éviter un chargement infini
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      loadingTimeoutRef.current = setTimeout(() => {
+        console.log('Timeout de chargement atteint, réinitialisation de l\'état');
+        setIsLoading(false);
+      }, 5000); // 5 secondes maximum de chargement
+    } else {
+      setIsLoading(false);
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    }
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
-      setIsLoading(true);
+      console.log('Vérification de l\'authentification...');
+      setLoadingWithTimeout(true);
+      setAuthError(null);
+      
       try {
-        // Vérifier la session actuelle
-        const { data: sessionData } = await supabase.auth.getSession();
+        // Étape 1: Vérifier la session actuelle
+        console.log('Étape 1: Vérification de la session');
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
-        // Si pas de session, essayer de récupérer l'utilisateur
+        if (sessionError) {
+          throw new Error(`Erreur de session: ${sessionError.message}`);
+        }
+        
+        console.log('Session:', sessionData.session ? 'Trouvée' : 'Non trouvée');
+        
+        // Étape 2: Si pas de session, essayer de récupérer l'utilisateur
         if (!sessionData.session) {
-          const { data: userData } = await supabase.auth.getUser();
+          console.log('Étape 2: Tentative de récupération de l\'utilisateur');
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          
+          if (userError) {
+            throw new Error(`Erreur utilisateur: ${userError.message}`);
+          }
+          
+          console.log('Utilisateur:', userData.user ? 'Trouvé' : 'Non trouvé');
           setIsLoggedIn(!!userData.user);
           
           if (userData.user) {
             // Vérifier le rôle de l'utilisateur
-            const { data: profileData } = await supabase
+            console.log('Vérification du rôle pour:', userData.user.id);
+            const { data: profileData, error: profileError } = await supabase
               .from('profiles')
               .select('role')
               .eq('id', userData.user.id)
               .single();
+            
+            if (profileError && profileError.code !== 'PGRST116') {
+              console.warn('Erreur lors de la récupération du profil:', profileError);
+            }
             
             setIsAdmin(profileData?.role === 'admin');
           } else {
@@ -41,23 +87,30 @@ export default function Header() {
           }
         } else {
           // Session trouvée
+          console.log('Session trouvée pour:', sessionData.session.user.id);
           setIsLoggedIn(true);
           
           // Vérifier le rôle de l'utilisateur
-          const { data: profileData } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('role')
             .eq('id', sessionData.session.user.id)
             .single();
           
+          if (profileError && profileError.code !== 'PGRST116') {
+            console.warn('Erreur lors de la récupération du profil:', profileError);
+          }
+          
           setIsAdmin(profileData?.role === 'admin');
         }
       } catch (error) {
         console.error('Erreur lors de la vérification de l\'authentification:', error);
+        setAuthError(error instanceof Error ? error.message : 'Erreur inconnue');
         setIsLoggedIn(false);
         setIsAdmin(false);
       } finally {
-        setIsLoading(false);
+        console.log('Fin de la vérification d\'authentification');
+        setLoadingWithTimeout(false);
       }
     };
     
@@ -68,22 +121,26 @@ export default function Header() {
       async (event, session) => {
         console.log('Événement d\'authentification:', event);
         
-        // Mettre à jour l'état de connexion
-        setIsLoggedIn(!!session);
-        
         // Réinitialiser l'état de chargement pour les événements importants
         if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
-          setIsLoading(false);
+          setLoadingWithTimeout(false);
         }
+        
+        // Mettre à jour l'état de connexion
+        setIsLoggedIn(!!session);
         
         if (session) {
           try {
             // Vérifier le rôle de l'utilisateur
-            const { data: userData } = await supabase
+            const { data: userData, error: userError } = await supabase
               .from('profiles')
               .select('role')
               .eq('id', session.user.id)
               .single();
+            
+            if (userError && userError.code !== 'PGRST116') {
+              console.warn('Erreur lors de la récupération du rôle:', userError);
+            }
             
             setIsAdmin(userData?.role === 'admin');
           } catch (error) {
@@ -97,20 +154,23 @@ export default function Header() {
     );
     
     return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
       authListener?.subscription.unsubscribe();
     };
   }, [supabase, pathname]);
 
   const handleLogout = async () => {
-    setIsLoading(true);
+    setLoadingWithTimeout(true);
     try {
       await supabase.auth.signOut();
-      router.push('/');
-      router.refresh();
+      // Utiliser window.location pour un rechargement complet
+      window.location.href = '/';
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
     } finally {
-      setIsLoading(false);
+      setLoadingWithTimeout(false);
     }
   };
 
