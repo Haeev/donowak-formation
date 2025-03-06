@@ -4,6 +4,15 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Database } from '@/types/database.types';
+
+type Formation = Database['public']['Tables']['formations']['Row'];
+
+// Type pour les formations de l'utilisateur avec des propriétés supplémentaires
+interface UserFormation extends Formation {
+  completed: boolean;
+  progress: number;
+}
 
 export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
@@ -11,6 +20,8 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userFormations, setUserFormations] = useState<UserFormation[]>([]);
+  const [formationsLoading, setFormationsLoading] = useState(true);
   const router = useRouter();
   const supabase = createClient();
 
@@ -19,10 +30,97 @@ export default function DashboardPage() {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       setLoading(false);
+      
+      if (user) {
+        fetchUserFormations(user.id);
+      }
     }
 
     getUser();
   }, [supabase]);
+
+  const fetchUserFormations = async (userId: string) => {
+    setFormationsLoading(true);
+    try {
+      // Récupérer les formations achetées par l'utilisateur
+      const { data: userFormationsData, error: userFormationsError } = await supabase
+        .from('user_formations')
+        .select(`
+          formation_id,
+          formations (*)
+        `)
+        .eq('user_id', userId);
+
+      if (userFormationsError) {
+        console.error('Erreur lors de la récupération des formations:', userFormationsError);
+        setFormationsLoading(false);
+        return;
+      }
+
+      // Récupérer la progression de l'utilisateur pour chaque formation
+      const formationsWithProgress: UserFormation[] = [];
+      
+      if (userFormationsData && userFormationsData.length > 0) {
+        for (const item of userFormationsData) {
+          if (item.formations) {
+            // Conversion explicite du type any à Formation
+            const formation = item.formations as unknown as Formation;
+            
+            // Récupérer les leçons de cette formation
+            const { data: chaptersData } = await supabase
+              .from('chapters')
+              .select(`
+                id,
+                lessons (id)
+              `)
+              .eq('formation_id', formation.id);
+            
+            // Calculer le nombre total de leçons
+            let totalLessons = 0;
+            let completedLessons = 0;
+            
+            if (chaptersData && chaptersData.length > 0) {
+              for (const chapter of chaptersData) {
+                if (chapter.lessons && Array.isArray(chapter.lessons)) {
+                  totalLessons += chapter.lessons.length;
+                  
+                  // Récupérer les leçons complétées
+                  for (const lesson of chapter.lessons) {
+                    const { data: progressData } = await supabase
+                      .from('user_progress')
+                      .select('completed')
+                      .eq('user_id', userId)
+                      .eq('lesson_id', lesson.id)
+                      .single();
+                    
+                    if (progressData && progressData.completed) {
+                      completedLessons++;
+                    }
+                  }
+                }
+              }
+            }
+            
+            // Calculer le pourcentage de progression
+            const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+            const completed = progress === 100;
+            
+            formationsWithProgress.push({
+              ...formation,
+              progress,
+              completed
+            });
+          }
+        }
+      }
+      
+      setUserFormations(formationsWithProgress);
+    } catch (error) {
+      console.error('Erreur lors de la récupération des formations:', error);
+    } finally {
+      setFormationsLoading(false);
+    }
+  };
 
   const handleDeleteAccount = async () => {
     if (!showConfirmation) {
@@ -127,6 +225,121 @@ export default function DashboardPage() {
                   </dd>
                 </div>
               </dl>
+            </div>
+          </div>
+
+          {/* Section des formations de l'utilisateur */}
+          <div className="mt-8 bg-white shadow overflow-hidden sm:rounded-lg">
+            <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                Vos formations
+              </h3>
+              <Link
+                href="/dashboard/formations"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Voir toutes vos formations
+              </Link>
+            </div>
+            <div className="border-t border-gray-200">
+              {formationsLoading ? (
+                <div className="px-4 py-5 sm:p-6 text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-2 text-sm text-gray-500">Chargement de vos formations...</p>
+                </div>
+              ) : userFormations.length === 0 ? (
+                <div className="px-4 py-5 sm:p-6 text-center">
+                  <svg
+                    className="mx-auto h-12 w-12 text-gray-400"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                    />
+                  </svg>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">Aucune formation</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    Vous n'avez pas encore commencé de formation.
+                  </p>
+                  <div className="mt-6">
+                    <Link
+                      href="/formations"
+                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Découvrir nos formations
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-200">
+                  {userFormations.slice(0, 3).map((formation) => (
+                    <li key={formation.id} className="px-4 py-4">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-shrink-0">
+                          <div className="h-12 w-12 rounded-md bg-blue-100 flex items-center justify-center">
+                            <svg
+                              className="h-6 w-6 text-blue-600"
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {formation.title}
+                          </p>
+                          <p className="text-sm text-gray-500 truncate">
+                            {formation.completed ? 'Terminée' : `Progression: ${formation.progress}%`}
+                          </p>
+                          <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                            <div
+                              className={`h-2.5 rounded-full ${
+                                formation.completed
+                                  ? 'bg-green-600'
+                                  : 'bg-blue-600'
+                              }`}
+                              style={{ width: `${formation.progress}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        <div>
+                          <Link
+                            href={`/formations/${formation.id}`}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            {formation.completed ? 'Revoir' : 'Continuer'}
+                          </Link>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                  {userFormations.length > 3 && (
+                    <li className="px-4 py-4 text-center">
+                      <Link
+                        href="/dashboard/formations"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-500"
+                      >
+                        Voir toutes vos formations ({userFormations.length})
+                      </Link>
+                    </li>
+                  )}
+                </ul>
+              )}
             </div>
           </div>
 
