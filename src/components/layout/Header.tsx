@@ -14,6 +14,7 @@ export default function Header() {
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const authCheckAttempts = useRef(0);
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
@@ -29,6 +30,10 @@ export default function Header() {
       loadingTimeoutRef.current = setTimeout(() => {
         console.log('Timeout de chargement atteint, réinitialisation de l\'état');
         setIsLoading(false);
+        // Si nous sommes sur une page protégée, rediriger vers la connexion
+        if (pathname?.startsWith('/dashboard')) {
+          window.location.href = '/auth/login';
+        }
       }, 5000); // 5 secondes maximum de chargement
     } else {
       setIsLoading(false);
@@ -39,13 +44,45 @@ export default function Header() {
     }
   };
 
+  // Fonction pour vérifier les cookies manuellement
+  const checkCookies = () => {
+    const cookies = document.cookie.split(';').map(cookie => cookie.trim());
+    const hasAccessToken = cookies.some(cookie => cookie.startsWith('sb-access-token='));
+    const hasRefreshToken = cookies.some(cookie => cookie.startsWith('sb-refresh-token='));
+    
+    console.log('Vérification des cookies:');
+    console.log('- Access Token:', hasAccessToken ? 'Présent' : 'Absent');
+    console.log('- Refresh Token:', hasRefreshToken ? 'Présent' : 'Absent');
+    
+    return hasAccessToken && hasRefreshToken;
+  };
+
   useEffect(() => {
     const checkAuth = async () => {
       console.log('Vérification de l\'authentification...');
+      authCheckAttempts.current += 1;
+      console.log(`Tentative #${authCheckAttempts.current}`);
+      
       setLoadingWithTimeout(true);
       setAuthError(null);
       
       try {
+        // Vérifier les cookies manuellement
+        const hasCookies = checkCookies();
+        
+        if (!hasCookies && authCheckAttempts.current > 1) {
+          console.log('Aucun cookie d\'authentification trouvé après plusieurs tentatives');
+          setIsLoggedIn(false);
+          setIsAdmin(false);
+          setLoadingWithTimeout(false);
+          
+          // Si nous sommes sur une page protégée, rediriger vers la connexion
+          if (pathname?.startsWith('/dashboard')) {
+            window.location.href = '/auth/login';
+          }
+          return;
+        }
+        
         // Étape 1: Vérifier la session actuelle
         console.log('Étape 1: Vérification de la session');
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -66,9 +103,42 @@ export default function Header() {
           }
           
           console.log('Utilisateur:', userData.user ? 'Trouvé' : 'Non trouvé');
-          setIsLoggedIn(!!userData.user);
           
-          if (userData.user) {
+          if (!userData.user) {
+            // Si nous n'avons pas d'utilisateur mais que nous avons des cookies, il y a un problème
+            if (hasCookies) {
+              console.log('Cookies présents mais pas d\'utilisateur, tentative de rafraîchissement');
+              // Essayer de rafraîchir la session
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              
+              if (refreshError || !refreshData.session) {
+                console.error('Échec du rafraîchissement de la session:', refreshError);
+                // Nettoyer les cookies si le rafraîchissement échoue
+                document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax; secure';
+                document.cookie = 'sb-refresh-token=; path=/; max-age=0; SameSite=Lax; secure';
+                setIsLoggedIn(false);
+              } else {
+                console.log('Session rafraîchie avec succès');
+                setIsLoggedIn(true);
+                
+                // Vérifier le rôle de l'utilisateur
+                if (refreshData.user) {
+                  const { data: profileData } = await supabase
+                    .from('profiles')
+                    .select('role')
+                    .eq('id', refreshData.user.id)
+                    .single();
+                  
+                  setIsAdmin(profileData?.role === 'admin');
+                }
+              }
+            } else {
+              setIsLoggedIn(false);
+              setIsAdmin(false);
+            }
+          } else {
+            setIsLoggedIn(true);
+            
             // Vérifier le rôle de l'utilisateur
             console.log('Vérification du rôle pour:', userData.user.id);
             const { data: profileData, error: profileError } = await supabase
@@ -82,8 +152,6 @@ export default function Header() {
             }
             
             setIsAdmin(profileData?.role === 'admin');
-          } else {
-            setIsAdmin(false);
           }
         } else {
           // Session trouvée
@@ -164,7 +232,13 @@ export default function Header() {
   const handleLogout = async () => {
     setLoadingWithTimeout(true);
     try {
+      // Déconnexion via Supabase
       await supabase.auth.signOut();
+      
+      // Nettoyer manuellement les cookies
+      document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax; secure';
+      document.cookie = 'sb-refresh-token=; path=/; max-age=0; SameSite=Lax; secure';
+      
       // Utiliser window.location pour un rechargement complet
       window.location.href = '/';
     } catch (error) {
