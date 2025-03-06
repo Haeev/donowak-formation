@@ -1,118 +1,126 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
+import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 
-export default function HomePage() {
+export default async function Home() {
+  const cookieStore = cookies();
+  const supabase = await createClient();
+  
+  // Vérifier si l'utilisateur est connecté
+  const { data: { session } } = await supabase.auth.getSession();
+  const isLoggedIn = !!session;
+
   return (
-    <div className="flex min-h-screen flex-col">
-      <main className="flex-grow">
-        {/* Hero Section */}
-        <section className="bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-800">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-28">
-            <div className="text-center md:text-left md:flex md:items-center md:justify-between">
-              <div className="md:max-w-2xl">
-                <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white sm:text-5xl sm:tracking-tight lg:text-6xl">
-                  Bienvenue sur <span className="text-blue-600 dark:text-blue-400">Donowak Formation</span>
-                </h1>
-                <p className="mt-5 text-xl text-gray-600 dark:text-gray-300">
-                  Votre plateforme de formation en ligne pour développer vos compétences et atteindre vos objectifs professionnels.
-                </p>
-                <div className="mt-8 flex justify-center md:justify-start space-x-4">
-                  <Link href="/formations">
-                    <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-md text-lg font-medium">
-                      Découvrir nos formations
-                    </Button>
-                  </Link>
-                  <Link href="/auth/register">
-                    <Button variant="outline" size="lg" className="px-6 py-3 rounded-md text-lg font-medium">
-                      Créer un compte
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-              <div className="hidden md:block md:ml-10 mt-10 md:mt-0">
-                <div className="relative w-full max-w-lg">
-                  <div className="absolute top-0 -left-4 w-72 h-72 bg-blue-300 dark:bg-blue-700 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-xl opacity-70 animate-blob"></div>
-                  <div className="absolute top-0 -right-4 w-72 h-72 bg-purple-300 dark:bg-purple-700 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-                  <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 dark:bg-pink-700 rounded-full mix-blend-multiply dark:mix-blend-soft-light filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-                  <div className="relative">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 border border-gray-200 dark:border-gray-700">
-                      <div className="h-64 w-64 mx-auto relative">
-                        <Image 
-                          src="/placeholder-hero.svg" 
-                          alt="Formation en ligne" 
-                          fill 
-                          className="object-contain"
-                          priority
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Features Section */}
-        <section className="py-16 bg-white dark:bg-gray-900">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Pourquoi choisir Donowak Formation ?</h2>
-              <p className="mt-4 text-xl text-gray-600 dark:text-gray-400">Nous vous offrons une expérience d'apprentissage complète et adaptée à vos besoins.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-8 border border-gray-100 dark:border-gray-700 transform transition duration-300 hover:scale-105">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Formations de qualité</h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Accédez à des formations créées par des experts dans leur domaine pour un apprentissage optimal.
-                </p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-8 border border-gray-100 dark:border-gray-700 transform transition duration-300 hover:scale-105">
-                <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Apprentissage flexible</h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Apprenez à votre rythme, où que vous soyez, avec un accès illimité à nos contenus.
-                </p>
-              </div>
-              <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-8 border border-gray-100 dark:border-gray-700 transform transition duration-300 hover:scale-105">
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Suivi personnalisé</h3>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Suivez votre progression et recevez des recommandations adaptées à votre parcours.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="py-16 bg-blue-600 dark:bg-blue-800">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <h2 className="text-3xl font-bold text-white mb-4">Prêt à commencer votre parcours d'apprentissage ?</h2>
-            <p className="text-xl text-blue-100 mb-8">Rejoignez des milliers d'apprenants qui développent leurs compétences avec nous.</p>
-            <Link href="/auth/register">
-              <Button size="lg" className="bg-white text-blue-600 hover:bg-blue-50 px-8 py-3 rounded-md text-lg font-medium">
-                S'inscrire gratuitement
+    <div className="flex flex-col min-h-[80vh]">
+      {/* Hero Section */}
+      <section className="relative flex flex-col items-center justify-center py-20 md:py-32 overflow-hidden">
+        {/* Animated blobs in background */}
+        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+        
+        <div className="relative z-10 container px-4 md:px-6 flex flex-col items-center text-center">
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tighter mb-4 animate-fade-in">
+            Formations professionnelles certifiantes
+          </h1>
+          <p className="max-w-[700px] text-lg md:text-xl text-muted-foreground mb-8 animate-fade-in animation-delay-300">
+            Développez vos compétences et obtenez des certifications reconnues dans votre domaine professionnel.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 animate-fade-in animation-delay-600">
+            {isLoggedIn ? (
+              <Button asChild size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                <Link href="/dashboard">
+                  Accéder à mon espace
+                </Link>
               </Button>
-            </Link>
+            ) : (
+              <>
+                <Button asChild size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                  <Link href="/auth/register">
+                    Commencer maintenant
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" size="lg">
+                  <Link href="/auth/login">
+                    Se connecter
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-16 md:py-24 bg-muted/50">
+        <div className="container px-4 md:px-6">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
+            Pourquoi choisir nos formations ?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Formations flexibles</h3>
+              <p className="text-muted-foreground">Apprenez à votre rythme avec des cours accessibles 24h/24 et 7j/7.</p>
+            </div>
+            <div className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                  <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"></path>
+                  <path d="m9 12 2 2 4-4"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Certifications reconnues</h3>
+              <p className="text-muted-foreground">Obtenez des certifications valorisées par les employeurs et les professionnels.</p>
+            </div>
+            <div className="flex flex-col items-center text-center p-6 bg-background rounded-lg shadow-sm">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold mb-2">Experts du domaine</h3>
+              <p className="text-muted-foreground">Apprenez avec des formateurs expérimentés et passionnés par leur métier.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-16 md:py-24">
+        <div className="container px-4 md:px-6">
+          <div className="flex flex-col items-center justify-center text-center max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              Prêt à développer vos compétences ?
+            </h2>
+            <p className="text-lg text-muted-foreground mb-8">
+              Rejoignez notre plateforme et accédez à des formations de qualité pour booster votre carrière.
+            </p>
+            {isLoggedIn ? (
+              <Button asChild size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                <Link href="/dashboard">
+                  Voir mes formations
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild size="lg" className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">
+                <Link href="/auth/register">
+                  S'inscrire gratuitement
+                </Link>
+              </Button>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

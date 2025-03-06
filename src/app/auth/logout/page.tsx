@@ -1,52 +1,66 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Loader2 } from 'lucide-react';
 
 export default function LogoutPage() {
-  const router = useRouter();
-  const supabase = createClient();
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
 
   useEffect(() => {
-    const signOut = async () => {
+    const handleLogout = async () => {
       try {
+        console.log('Déconnexion en cours...');
+        setIsLoading(true);
+        
+        // Vérifier si l'utilisateur est connecté
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Session avant déconnexion:', session ? 'Présente' : 'Absente');
+        
+        // Déconnecter l'utilisateur
         const { error } = await supabase.auth.signOut();
+        
         if (error) {
-          throw error;
+          console.error('Erreur lors de la déconnexion:', error.message);
+          setError(error.message);
+          setIsLoading(false);
+          return;
         }
-        // Rediriger vers la page d'accueil après déconnexion
-        router.push('/');
-        router.refresh();
-      } catch (err: any) {
-        setError(err.message || 'Une erreur est survenue lors de la déconnexion');
-        // Rediriger vers la page d'accueil même en cas d'erreur après 3 secondes
+        
+        console.log('Déconnexion réussie, redirection...');
+        
+        // Rediriger vers la page d'accueil après une courte pause
         setTimeout(() => {
-          router.push('/');
-          router.refresh();
-        }, 3000);
+          window.location.href = '/';
+        }, 1000);
+      } catch (err) {
+        console.error('Erreur inattendue lors de la déconnexion:', err);
+        setError('Une erreur inattendue est survenue lors de la déconnexion.');
+        setIsLoading(false);
       }
     };
 
-    signOut();
-  }, [router, supabase]);
+    handleLogout();
+  }, []);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-          Déconnexion en cours...
-        </h2>
-        <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-          Vous êtes en train d'être déconnecté.
-        </p>
-        {error && (
-          <div className="mt-4 rounded-md bg-red-50 p-4">
-            <div className="text-sm text-red-700">{error}</div>
-          </div>
-        )}
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-[60vh]">
+      {isLoading ? (
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-lg">Déconnexion en cours...</p>
+        </div>
+      ) : error ? (
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-500">Erreur</h1>
+          <p className="mt-2">{error}</p>
+          <a href="/" className="mt-4 inline-block text-primary hover:underline">
+            Retour à l'accueil
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 } 
