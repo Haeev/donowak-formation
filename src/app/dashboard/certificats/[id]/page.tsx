@@ -13,11 +13,11 @@ interface CertificateWithFormation extends Certificate {
   formation: Formation;
 }
 
-export default function CertificateDetailPage({ 
-  params 
-}: { 
-  params: Promise<{ id: string }> | { id: string }
-}) {
+interface PageProps {
+  params: Promise<{ id: string }> | undefined;
+}
+
+export default function CertificateDetailPage({ params }: PageProps) {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -28,18 +28,31 @@ export default function CertificateDetailPage({
 
   useEffect(() => {
     async function initialize() {
-      // Résoudre les paramètres s'ils sont une Promise
-      const resolvedParams = params instanceof Promise ? await params : params;
-      setFormationId(resolvedParams.id);
-      
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      
-      if (user && resolvedParams.id) {
-        fetchCertificate(user.id, resolvedParams.id);
-      } else {
+      try {
+        // Résoudre les paramètres s'ils sont une Promise
+        const resolvedParams = params ? await params : { id: '' };
+        
+        if (!resolvedParams.id) {
+          setError("Identifiant de formation manquant");
+          setLoading(false);
+          return;
+        }
+        
+        setFormationId(resolvedParams.id);
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+        
+        if (user && resolvedParams.id) {
+          fetchCertificate(user.id, resolvedParams.id);
+        } else if (!user) {
+          setLoading(false);
+          router.push('/auth/login');
+        }
+      } catch (error) {
+        console.error("Erreur lors de l'initialisation:", error);
+        setError("Une erreur est survenue lors du chargement du certificat");
         setLoading(false);
-        router.push('/auth/login');
       }
     }
 
