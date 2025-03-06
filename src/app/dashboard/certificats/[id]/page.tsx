@@ -16,30 +16,35 @@ interface CertificateWithFormation extends Certificate {
 export default function CertificateDetailPage({ 
   params 
 }: { 
-  params: { id: string } 
+  params: Promise<{ id: string }> | { id: string }
 }) {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [certificate, setCertificate] = useState<CertificateWithFormation | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [formationId, setFormationId] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
-    async function getUser() {
+    async function initialize() {
+      // Résoudre les paramètres s'ils sont une Promise
+      const resolvedParams = params instanceof Promise ? await params : params;
+      setFormationId(resolvedParams.id);
+      
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       
-      if (user) {
-        fetchCertificate(user.id, params.id);
+      if (user && resolvedParams.id) {
+        fetchCertificate(user.id, resolvedParams.id);
       } else {
         setLoading(false);
         router.push('/auth/login');
       }
     }
 
-    getUser();
-  }, [supabase, params.id, router]);
+    initialize();
+  }, [supabase, params, router]);
 
   const fetchCertificate = async (userId: string, formationId: string) => {
     setLoading(true);
