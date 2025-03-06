@@ -35,8 +35,8 @@ function LoginForm() {
         throw error;
       }
 
-      router.push('/dashboard');
-      router.refresh();
+      // Redirection avec rechargement complet pour s'assurer que l'état d'authentification est mis à jour
+      window.location.href = '/dashboard';
     } catch (error: any) {
       setError(error.message || 'Une erreur est survenue lors de la connexion');
     } finally {

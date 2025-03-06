@@ -19,20 +19,38 @@ export default function Header() {
     const checkAuth = async () => {
       setIsLoading(true);
       try {
-        const { data } = await supabase.auth.getSession();
+        // Vérifier la session actuelle
+        const { data: sessionData } = await supabase.auth.getSession();
         
-        setIsLoggedIn(!!data.session);
-        
-        if (data.session) {
-          const { data: userData } = await supabase
+        // Si pas de session, essayer de récupérer l'utilisateur
+        if (!sessionData.session) {
+          const { data: userData } = await supabase.auth.getUser();
+          setIsLoggedIn(!!userData.user);
+          
+          if (userData.user) {
+            // Vérifier le rôle de l'utilisateur
+            const { data: profileData } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', userData.user.id)
+              .single();
+            
+            setIsAdmin(profileData?.role === 'admin');
+          } else {
+            setIsAdmin(false);
+          }
+        } else {
+          // Session trouvée
+          setIsLoggedIn(true);
+          
+          // Vérifier le rôle de l'utilisateur
+          const { data: profileData } = await supabase
             .from('profiles')
             .select('role')
-            .eq('id', data.session.user.id)
+            .eq('id', sessionData.session.user.id)
             .single();
           
-          setIsAdmin(userData?.role === 'admin');
-        } else {
-          setIsAdmin(false);
+          setIsAdmin(profileData?.role === 'admin');
         }
       } catch (error) {
         console.error('Erreur lors de la vérification de l\'authentification:', error);
@@ -48,16 +66,30 @@ export default function Header() {
     // Écouter les changements d'authentification
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Événement d\'authentification:', event);
+        
+        // Mettre à jour l'état de connexion
         setIsLoggedIn(!!session);
         
+        // Réinitialiser l'état de chargement pour les événements importants
+        if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') {
+          setIsLoading(false);
+        }
+        
         if (session) {
-          const { data: userData } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-          
-          setIsAdmin(userData?.role === 'admin');
+          try {
+            // Vérifier le rôle de l'utilisateur
+            const { data: userData } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', session.user.id)
+              .single();
+            
+            setIsAdmin(userData?.role === 'admin');
+          } catch (error) {
+            console.error('Erreur lors de la récupération du rôle:', error);
+            setIsAdmin(false);
+          }
         } else {
           setIsAdmin(false);
         }
@@ -67,12 +99,19 @@ export default function Header() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, pathname]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-    router.refresh();
+    setIsLoading(true);
+    try {
+      await supabase.auth.signOut();
+      router.push('/');
+      router.refresh();
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const toggleMenu = () => {
@@ -82,6 +121,17 @@ export default function Header() {
   const closeMenu = () => {
     setIsMenuOpen(false);
   };
+
+  // Limiter le temps de chargement à 5 secondes maximum
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        setIsLoading(false);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [isLoading]);
 
   return (
     <header className="bg-white dark:bg-gray-900 shadow-sm">
