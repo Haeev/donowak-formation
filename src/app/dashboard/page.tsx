@@ -216,8 +216,15 @@ export default function DashboardPage() {
         {/* En-tête avec le nom de l'utilisateur */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Vos formations</h2>
-          <div className="text-sm text-gray-500">
-            {userId && <span>Connecté</span>}
+          <div className="flex items-center space-x-4">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/profil">
+                Gérer votre profil
+              </Link>
+            </Button>
+            <div className="text-sm text-gray-500">
+              {userId && <span>Connecté</span>}
+            </div>
           </div>
         </div>
         
