@@ -135,75 +135,35 @@ export default function ProfilePage() {
     setDeleteError(null);
     
     try {
-      if (!user) {
-        throw new Error('Utilisateur non connecté');
-      }
-      
-      console.log('Tentative de suppression du compte utilisateur');
-      
       // Appeler l'API de suppression de compte
       const response = await fetch('/api/user/delete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        },
-        // Ajouter un timeout pour éviter que la requête ne reste bloquée
-        signal: AbortSignal.timeout(10000) // 10 secondes
+        }
       });
       
-      console.log('Réponse de l\'API:', response.status);
-      
       if (!response.ok) {
-        let errorMessage = 'Erreur lors de la suppression du compte';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-        } catch (parseError) {
-          console.error('Erreur lors de la lecture de la réponse d\'erreur:', parseError);
-        }
-        throw new Error(errorMessage);
+        throw new Error('Erreur lors de la suppression du compte');
       }
       
-      // Récupérer la réponse JSON
-      const data = await response.json();
-      console.log('Compte supprimé avec succès, déconnexion en cours');
+      // Forcer la déconnexion côté client
+      await supabase.auth.signOut();
       
-      // Déconnecter l'utilisateur côté client avant la redirection
-      try {
-        await supabase.auth.signOut({ scope: 'global' });
-        console.log('Déconnexion côté client réussie');
-      } catch (signOutError) {
-        console.error('Erreur lors de la déconnexion côté client:', signOutError);
-        // Continuer même en cas d'erreur
-      }
-      
-      // Effacer les cookies manuellement
+      // Effacer les cookies et le stockage local
       document.cookie.split(';').forEach(cookie => {
         const [name] = cookie.trim().split('=');
         document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
       });
       
-      // Vider le localStorage et sessionStorage
-      try {
-        localStorage.clear();
-        sessionStorage.clear();
-        console.log('Storage local effacé');
-      } catch (storageError) {
-        console.error('Erreur lors de l\'effacement du storage:', storageError);
-      }
+      localStorage.clear();
+      sessionStorage.clear();
       
-      console.log('Redirection vers la page de déconnexion');
-      
-      // Rediriger vers la page de déconnexion avec le paramètre account_deleted
-      // Utiliser une redirection forcée pour s'assurer que la page est complètement rechargée
-      if (data.redirectTo) {
-        window.location.href = data.redirectTo;
-      } else {
-        window.location.href = '/auth/logout?account_deleted=true';
-      }
-    } catch (error: any) {
-      console.error('Erreur lors de la suppression du compte:', error);
-      setDeleteError(error.message || 'Une erreur est survenue lors de la suppression du compte');
+      // Rediriger vers la page d'accueil
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Erreur:', error);
+      setDeleteError('Une erreur est survenue lors de la suppression du compte');
       setIsDeleting(false);
     }
   };
