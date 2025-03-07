@@ -1,23 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
-  // Vérifier si l'utilisateur est déjà connecté via localStorage
-  useEffect(() => {
-    const userData = localStorage.getItem('donowak_user');
-    if (userData) {
-      console.log("Utilisateur trouvé dans localStorage, redirection vers le tableau de bord");
-      window.location.href = '/dashboard';
-    }
-  }, []);
-
   return (
     <div className="flex min-h-screen flex-col items-center justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -47,8 +38,6 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  
-  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,46 +48,27 @@ function LoginForm() {
     try {
       console.log("Tentative de connexion avec:", email);
       
-      // Connexion avec email/mot de passe
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Utiliser NextAuth.js pour la connexion
+      const result = await signIn('credentials', {
+        redirect: false,
         email,
         password,
       });
-
-      if (error) {
-        console.error("Erreur de connexion:", error.message);
-        throw error;
+      
+      if (result?.error) {
+        console.error("Erreur de connexion:", result.error);
+        throw new Error(result.error);
+      }
+      
+      if (!result?.ok) {
+        throw new Error("La connexion a échoué");
       }
 
-      if (!data.session) {
-        throw new Error("La session n'a pas pu être créée");
-      }
-
-      console.log("Connexion réussie, session créée pour:", data.user?.id);
+      console.log("Connexion réussie!");
       setSuccessMessage("Connexion réussie! Redirection en cours...");
       
-      // Stocker les informations de l'utilisateur dans localStorage
-      const userData = {
-        id: data.user.id,
-        email: data.user.email,
-        session: {
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-          expires_at: Math.floor(Date.now() / 1000) + data.session.expires_in
-        }
-      };
-      
-      localStorage.setItem('donowak_user', JSON.stringify(userData));
-      
-      // Définir manuellement les cookies pour Supabase
-      document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax; secure`;
-      document.cookie = `sb-refresh-token=${data.session.refresh_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax; secure`;
-      
-      // Attendre un court instant pour que tout soit bien enregistré
-      setTimeout(() => {
-        // Forcer un rechargement complet de la page
-        window.location.href = '/dashboard';
-      }, 1500);
+      // Rediriger vers le tableau de bord
+      window.location.href = '/dashboard';
       
     } catch (error: any) {
       console.error("Erreur complète:", error);

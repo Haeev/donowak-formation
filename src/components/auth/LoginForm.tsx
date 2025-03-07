@@ -8,22 +8,37 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Database } from '@/types/database.types';
 
+/**
+ * Schéma de validation pour le formulaire de connexion
+ * Définit les règles de validation pour l'email et le mot de passe
+ */
 const loginSchema = z.object({
   email: z.string().email('Email invalide'),
   password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
 });
 
+/**
+ * Type pour les valeurs du formulaire de connexion
+ * Généré à partir du schéma Zod
+ */
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+/**
+ * Composant de formulaire de connexion
+ * Gère l'authentification des utilisateurs via Supabase
+ */
 export default function LoginForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Initialisation du client Supabase côté navigateur
   const supabase = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // Configuration du formulaire avec React Hook Form et validation Zod
   const {
     register,
     handleSubmit,
@@ -32,21 +47,29 @@ export default function LoginForm() {
     resolver: zodResolver(loginSchema),
   });
 
+  /**
+   * Gère la soumission du formulaire
+   * Tente de connecter l'utilisateur avec Supabase
+   * @param data - Les données du formulaire validées
+   */
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     setError(null);
 
     try {
+      // Tentative de connexion avec email/mot de passe
       const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       });
 
+      // Gestion des erreurs de connexion
       if (error) {
         setError(error.message);
         return;
       }
 
+      // Rafraîchir la page et rediriger vers le tableau de bord
       router.refresh();
       router.push('/dashboard');
     } catch (error) {
@@ -58,12 +81,14 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
+      {/* Affichage des erreurs */}
       {error && (
         <div className="rounded-md bg-red-50 p-4">
           <div className="text-sm text-red-700">{error}</div>
         </div>
       )}
       <div className="space-y-4 rounded-md shadow-sm">
+        {/* Champ email */}
         <div>
           <label htmlFor="email" className="sr-only">
             Adresse email
@@ -80,6 +105,7 @@ export default function LoginForm() {
             <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
           )}
         </div>
+        {/* Champ mot de passe */}
         <div>
           <label htmlFor="password" className="sr-only">
             Mot de passe
@@ -98,6 +124,7 @@ export default function LoginForm() {
         </div>
       </div>
 
+      {/* Lien mot de passe oublié */}
       <div className="flex items-center justify-between">
         <div className="text-sm">
           <a href="/auth/forgot-password" className="font-medium text-blue-600 hover:text-blue-500">
@@ -106,6 +133,7 @@ export default function LoginForm() {
         </div>
       </div>
 
+      {/* Bouton de soumission */}
       <div>
         <button
           type="submit"

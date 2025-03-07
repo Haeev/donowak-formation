@@ -34,3 +34,20 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Déploiement
+
+Ce projet utilise Vercel pour le déploiement. Pour déployer l'application, utilisez les scripts fournis :
+
+```bash
+# Pour déployer avec un message de commit personnalisé
+./vercel-cli.sh deploy "Votre message de commit"
+
+# Pour vérifier l'état du déploiement
+./vercel-cli.sh status
+
+# Pour afficher les logs du déploiement
+./vercel-cli.sh logs
+```
+
+Pour plus d'informations, consultez le fichier [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md).

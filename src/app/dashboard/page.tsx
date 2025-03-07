@@ -1,127 +1,82 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Database } from '@/types/database.types';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+/**
+ * Type pour les formations depuis la base de données
+ */
 type Formation = Database['public']['Tables']['formations']['Row'];
 
-// Type pour les formations de l'utilisateur avec des propriétés supplémentaires
+/**
+ * Interface pour les formations de l'utilisateur avec des propriétés supplémentaires
+ * Étend le type Formation avec des informations de progression
+ */
 interface UserFormation extends Formation {
-  completed: boolean;
-  progress: number;
+  completed: boolean;  // Indique si la formation est terminée
+  progress: number;    // Pourcentage de progression (0-100)
 }
 
-// Type pour les données utilisateur stockées dans localStorage
-interface StoredUserData {
-  id: string;
-  email: string;
-  session: {
-    access_token: string;
-    refresh_token: string;
-    expires_at: number;
-  };
-}
-
+/**
+ * Page principale du tableau de bord
+ * Affiche les formations de l'utilisateur avec leur progression
+ */
 export default function DashboardPage() {
-  const [user, setUser] = useState<StoredUserData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: session, status } = useSession();
   const [userFormations, setUserFormations] = useState<UserFormation[]>([]);
   const [formationsLoading, setFormationsLoading] = useState(true);
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClient();
 
-  // Vérifier l'authentification au chargement de la page
+  // Vérifier l'authentification et charger les formations
   useEffect(() => {
-    const checkAuth = () => {
+    const loadUserData = async () => {
+      // Si l'utilisateur n'est pas connecté, NextAuth.js redirigera automatiquement
+      if (status === 'loading') return;
+      
+      if (status === 'unauthenticated') {
+        console.log("Utilisateur non authentifié, redirection vers la page de connexion");
+        window.location.href = '/auth/login';
+        return;
+      }
+      
+      if (!session?.user?.id) {
+        console.error("Session utilisateur invalide");
+        setError("Impossible de charger vos informations. Veuillez vous reconnecter.");
+        return;
+      }
+      
       try {
-        console.log("Vérification de l'authentification via localStorage...");
+        console.log("Chargement des formations pour l'utilisateur:", session.user.id);
         
-        // Récupérer les données utilisateur depuis localStorage
-        const storedUserData = localStorage.getItem('donowak_user');
-        
-        if (!storedUserData) {
-          console.log("Aucune donnée utilisateur trouvée dans localStorage");
-          setError("Vous n'êtes pas connecté. Veuillez vous connecter pour accéder à votre tableau de bord.");
-          setLoading(false);
-          
-          // Rediriger vers la page de connexion après 2 secondes
-          setTimeout(() => {
-            window.location.href = '/auth/login';
-          }, 2000);
-          return;
+        // Configurer le client Supabase avec le token d'accès si disponible
+        if (session.supabaseAccessToken) {
+          await supabase.auth.setSession({
+            access_token: session.supabaseAccessToken,
+            refresh_token: session.supabaseRefreshToken || '',
+          });
         }
-        
-        // Parser les données utilisateur
-        const userData: StoredUserData = JSON.parse(storedUserData);
-        console.log("Données utilisateur trouvées pour:", userData.email);
-        
-        // Vérifier si la session a expiré
-        if (userData.session.expires_at < Math.floor(Date.now() / 1000)) {
-          console.log("Session expirée, redirection vers la page de connexion");
-          localStorage.removeItem('donowak_user');
-          setError("Votre session a expiré. Veuillez vous reconnecter.");
-          setLoading(false);
-          
-          // Rediriger vers la page de connexion après 2 secondes
-          setTimeout(() => {
-            window.location.href = '/auth/login';
-          }, 2000);
-          return;
-        }
-        
-        // Définir l'utilisateur
-        setUser(userData);
-        
-        // Configurer le client Supabase avec le token d'accès
-        supabase.auth.setSession({
-          access_token: userData.session.access_token,
-          refresh_token: userData.session.refresh_token
-        });
         
         // Charger les formations de l'utilisateur
-        fetchUserFormations(userData.id);
-        
-        setLoading(false);
+        await fetchUserFormations(session.user.id);
       } catch (error) {
-        console.error("Erreur lors de la vérification de l'authentification:", error);
-        setError("Une erreur est survenue lors du chargement du tableau de bord. Veuillez vous reconnecter.");
-        setLoading(false);
-        
-        // Rediriger vers la page de connexion après 2 secondes
-        setTimeout(() => {
-          window.location.href = '/auth/login';
-        }, 2000);
+        console.error("Erreur lors du chargement des données utilisateur:", error);
+        setError("Une erreur est survenue lors du chargement de vos formations.");
       }
     };
     
-    // Définir un timeout pour éviter un chargement infini
-    loadingTimeoutRef.current = setTimeout(() => {
-      if (loading) {
-        console.log("Timeout de chargement atteint");
-        setLoading(false);
-        setError("Le chargement a pris trop de temps. Veuillez rafraîchir la page ou vous reconnecter.");
-        
-        // Rediriger vers la page de connexion après 2 secondes
-        setTimeout(() => {
-          window.location.href = '/auth/login';
-        }, 2000);
-      }
-    }, 5000); // 5 secondes maximum
-    
-    checkAuth();
-    
-    return () => {
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-      }
-    };
-  }, []);
+    loadUserData();
+  }, [session, status]);
 
+  /**
+   * Récupère les formations de l'utilisateur et calcule leur progression
+   * @param userId - L'identifiant de l'utilisateur
+   */
   const fetchUserFormations = async (userId: string) => {
     setFormationsLoading(true);
     try {
@@ -168,7 +123,7 @@ export default function DashboardPage() {
             `)
             .eq('formation_id', formation.id);
           
-          // Calculer le nombre total de leçons
+          // Calculer le nombre total de leçons et les leçons complétées
           let totalLessons = 0;
           let completedLessons = 0;
           
@@ -198,6 +153,7 @@ export default function DashboardPage() {
           const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
           const completed = progress === 100;
           
+          // Ajouter la formation avec sa progression à la liste
           formationsWithProgress.push({
             ...formation,
             progress,
@@ -206,6 +162,7 @@ export default function DashboardPage() {
         }
       }
       
+      // Mettre à jour l'état avec les formations et leur progression
       setUserFormations(formationsWithProgress);
     } catch (error) {
       console.error('Erreur lors de la récupération des formations:', error);
@@ -214,7 +171,8 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
+  // Afficher un écran de chargement pendant la vérification de l'authentification
+  if (status === 'loading') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -223,6 +181,7 @@ export default function DashboardPage() {
     );
   }
 
+  // Afficher un message d'erreur si nécessaire
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
@@ -237,6 +196,7 @@ export default function DashboardPage() {
     );
   }
 
+  // Afficher un message si l'utilisateur n'a pas de formations
   if (userFormations.length === 0 && !formationsLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -254,28 +214,33 @@ export default function DashboardPage() {
     );
   }
 
+  // Afficher le tableau de bord avec les formations
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Votre tableau de bord</h1>
       
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        {/* En-tête avec le nom de l'utilisateur */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Vos formations</h2>
           <div className="text-sm text-gray-500">
-            Connecté en tant que: {user?.email}
+            Connecté en tant que: {session?.user?.email}
           </div>
         </div>
         
+        {/* Affichage des formations ou indicateur de chargement */}
         {formationsLoading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Liste des formations avec leur progression */}
             {userFormations.map((formation) => (
               <div key={formation.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden shadow-sm">
                 <div className="p-4">
                   <h3 className="font-semibold text-lg mb-2">{formation.title}</h3>
+                  {/* Barre de progression */}
                   <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full mb-2">
                     <div 
                       className="h-full bg-green-500 rounded-full" 
@@ -286,6 +251,7 @@ export default function DashboardPage() {
                     <span>Progression: {formation.progress}%</span>
                     {formation.completed && <span className="text-green-500">Terminé ✓</span>}
                   </div>
+                  {/* Bouton pour accéder à la formation */}
                   <Button asChild className="w-full">
                     <Link href={`/dashboard/formations/${formation.id}`}>
                       {formation.progress > 0 ? 'Continuer' : 'Commencer'}

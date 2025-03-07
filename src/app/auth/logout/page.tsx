@@ -1,13 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { signOut } from 'next-auth/react';
 import { Loader2 } from 'lucide-react';
 
 export default function LogoutPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const supabase = createClient();
 
   useEffect(() => {
     const handleLogout = async () => {
@@ -15,24 +14,8 @@ export default function LogoutPage() {
         console.log('Déconnexion en cours...');
         setIsLoading(true);
         
-        // Nettoyer le localStorage
-        localStorage.removeItem('donowak_user');
-        console.log('Données utilisateur supprimées du localStorage');
-        
-        // Nettoyer les cookies
-        document.cookie = 'sb-access-token=; path=/; max-age=0; SameSite=Lax; secure';
-        document.cookie = 'sb-refresh-token=; path=/; max-age=0; SameSite=Lax; secure';
-        console.log('Cookies d\'authentification supprimés');
-        
-        // Déconnecter l'utilisateur de Supabase
-        const { error } = await supabase.auth.signOut();
-        
-        if (error) {
-          console.error('Erreur lors de la déconnexion Supabase:', error.message);
-          setError(error.message);
-          setIsLoading(false);
-          return;
-        }
+        // Déconnexion via NextAuth.js
+        await signOut({ redirect: false });
         
         console.log('Déconnexion réussie, redirection...');
         
