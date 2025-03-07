@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 
-export default function LogoutPage() {
+function LogoutContent() {
   const [message, setMessage] = useState('Déconnexion en cours...');
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -52,5 +52,18 @@ export default function LogoutPage() {
       <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
       <p className="text-lg">{message}</p>
     </div>
+  );
+}
+
+export default function LogoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg">Chargement...</p>
+      </div>
+    }>
+      <LogoutContent />
+    </Suspense>
   );
 } 
