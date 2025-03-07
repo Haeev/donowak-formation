@@ -3,10 +3,10 @@ import { createServerClient } from '@supabase/ssr';
 
 /**
  * Middleware principal de l'application
- * Gère l'authentification et les redirections basées sur l'état de la session
+ * Met à jour uniquement les cookies de session sans gérer les redirections
  * 
  * @param request - La requête entrante
- * @returns La réponse modifiée avec les cookies de session mis à jour et les redirections si nécessaire
+ * @returns La réponse modifiée avec les cookies de session mis à jour
  */
 export async function middleware(request: NextRequest) {
   // Obtenir l'URL actuelle
@@ -59,30 +59,8 @@ export async function middleware(request: NextRequest) {
   );
 
   try {
-    // Vérifier si l'utilisateur est authentifié
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    // Routes protégées qui nécessitent une authentification
-    const protectedRoutes = ['/dashboard', '/admin'];
-    
-    // Routes d'authentification (login, register) qui ne devraient pas être accessibles si déjà connecté
-    const authRoutes = ['/auth/login', '/auth/register'];
-    
-    // Vérifier si l'utilisateur tente d'accéder à une route protégée
-    const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
-    
-    // Vérifier si l'utilisateur tente d'accéder à une route d'authentification
-    const isAuthRoute = authRoutes.some(route => path === route);
-
-    // Rediriger les utilisateurs non authentifiés qui tentent d'accéder à une route protégée
-    if (!session && isProtectedRoute) {
-      return NextResponse.redirect(new URL('/auth/login', request.url));
-    }
-
-    // Rediriger les utilisateurs authentifiés qui tentent d'accéder aux pages d'authentification
-    if (session && isAuthRoute) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
+    // Mettre à jour la session sans effectuer de redirection
+    await supabase.auth.getSession();
   } catch (error) {
     console.error('Middleware - Erreur:', error);
   }

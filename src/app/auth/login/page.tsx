@@ -22,7 +22,10 @@ export default function LoginPage() {
         
         if (data.session) {
           console.log("Utilisateur déjà connecté, redirection vers le tableau de bord");
-          router.push('/dashboard');
+          // Utiliser setTimeout pour éviter les problèmes de redirection
+          setTimeout(() => {
+            window.location.href = '/dashboard';
+          }, 100);
         } else {
           setIsLoading(false);
         }
@@ -33,7 +36,7 @@ export default function LoginPage() {
     };
     
     checkSession();
-  }, [router]);
+  }, []);
   
   // Afficher un indicateur de chargement pendant la vérification de la session
   if (isLoading) {
@@ -74,7 +77,6 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const router = useRouter();
   const searchParams = useSearchParams();
   
   // Récupérer l'URL de redirection si elle existe
@@ -111,9 +113,9 @@ function LoginForm() {
       
       // Attendre un court instant avant de rediriger
       setTimeout(() => {
-        // Rediriger vers le tableau de bord ou l'URL de callback
+        // Utiliser window.location pour une redirection complète
         window.location.href = callbackUrl;
-      }, 1000);
+      }, 1500);
       
     } catch (error: any) {
       console.error("Erreur complète:", error);

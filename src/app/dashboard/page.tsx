@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { useSession } from 'next-auth/react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Database } from '@/types/database.types';
@@ -27,51 +26,45 @@ interface UserFormation extends Formation {
  * Affiche les formations de l'utilisateur avec leur progression
  */
 export default function DashboardPage() {
-  const { data: session, status } = useSession();
   const [userFormations, setUserFormations] = useState<UserFormation[]>([]);
   const [formationsLoading, setFormationsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const supabase = createClient();
 
-  // Vérifier l'authentification et charger les formations
+  // Vérifier l'authentification
   useEffect(() => {
-    const loadUserData = async () => {
-      // Si l'utilisateur n'est pas connecté, NextAuth.js redirigera automatiquement
-      if (status === 'loading') return;
-      
-      if (status === 'unauthenticated') {
-        console.log("Utilisateur non authentifié, redirection vers la page de connexion");
-        window.location.href = '/auth/login';
-        return;
-      }
-      
-      if (!session?.user?.id) {
-        console.error("Session utilisateur invalide");
-        setError("Impossible de charger vos informations. Veuillez vous reconnecter.");
-        return;
-      }
-      
+    const checkAuth = async () => {
       try {
-        console.log("Chargement des formations pour l'utilisateur:", session.user.id);
+        const { data, error } = await supabase.auth.getSession();
         
-        // Configurer le client Supabase avec le token d'accès si disponible
-        if (session.supabaseAccessToken) {
-          await supabase.auth.setSession({
-            access_token: session.supabaseAccessToken,
-            refresh_token: session.supabaseRefreshToken || '',
-          });
+        if (error) {
+          throw error;
         }
         
+        if (!data.session) {
+          console.log("Utilisateur non authentifié, redirection vers la page de connexion");
+          window.location.href = '/auth/login';
+          return;
+        }
+        
+        setIsAuthenticated(true);
+        setUserId(data.session.user.id);
+        setIsCheckingAuth(false);
+        
         // Charger les formations de l'utilisateur
-        await fetchUserFormations(session.user.id);
+        await fetchUserFormations(data.session.user.id);
       } catch (error) {
-        console.error("Erreur lors du chargement des données utilisateur:", error);
-        setError("Une erreur est survenue lors du chargement de vos formations.");
+        console.error("Erreur lors de la vérification de l'authentification:", error);
+        setError("Impossible de vérifier votre authentification. Veuillez vous reconnecter.");
+        setIsCheckingAuth(false);
       }
     };
     
-    loadUserData();
-  }, [session, status]);
+    checkAuth();
+  }, []);
 
   /**
    * Récupère les formations de l'utilisateur et calcule leur progression
@@ -172,11 +165,11 @@ export default function DashboardPage() {
   };
 
   // Afficher un écran de chargement pendant la vérification de l'authentification
-  if (status === 'loading') {
+  if (isCheckingAuth) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg">Chargement de votre tableau de bord...</p>
+        <p className="text-lg">Vérification de votre authentification...</p>
       </div>
     );
   }
@@ -224,7 +217,7 @@ export default function DashboardPage() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Vos formations</h2>
           <div className="text-sm text-gray-500">
-            Connecté en tant que: {session?.user?.email}
+            {userId && <span>Connecté</span>}
           </div>
         </div>
         
