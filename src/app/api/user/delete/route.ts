@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { cookies } from 'next/headers';
 
 export async function POST() {
@@ -7,7 +8,7 @@ export async function POST() {
   
   try {
     const cookieStore = cookies();
-    // Créer le client Supabase
+    // Créer le client Supabase standard pour vérifier l'authentification
     const supabase = await createClient();
     
     // Vérifier l'authentification
@@ -32,9 +33,12 @@ export async function POST() {
     const userId = session.user.id;
     console.log('ID utilisateur à supprimer:', userId);
     
+    // Créer le client admin avec la clé de service pour les opérations de suppression
     try {
+      const supabaseAdmin = createAdminClient();
+      
       // Supprimer le profil utilisateur
-      const { error: profileError } = await supabase
+      const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .delete()
         .eq('id', userId);
@@ -48,7 +52,7 @@ export async function POST() {
       
       // Supprimer toutes les données associées à l'utilisateur
       // Supprimer les formations de l'utilisateur
-      const { error: userFormationsError } = await supabase
+      const { error: userFormationsError } = await supabaseAdmin
         .from('user_formations')
         .delete()
         .eq('user_id', userId);
@@ -60,7 +64,7 @@ export async function POST() {
       }
       
       // Supprimer les progressions de l'utilisateur
-      const { error: userProgressError } = await supabase
+      const { error: userProgressError } = await supabaseAdmin
         .from('user_progress')
         .delete()
         .eq('user_id', userId);
@@ -72,7 +76,7 @@ export async function POST() {
       }
       
       // Supprimer les certificats de l'utilisateur
-      const { error: userCertificatesError } = await supabase
+      const { error: userCertificatesError } = await supabaseAdmin
         .from('certificates')
         .delete()
         .eq('user_id', userId);
@@ -82,29 +86,40 @@ export async function POST() {
       } else {
         console.log('Certificats de l\'utilisateur supprimés avec succès');
       }
-    } catch (dbError) {
-      console.error('Erreur lors de la suppression des données utilisateur:', dbError);
-      // Continuer avec la suppression de l'utilisateur
-    }
-    
-    try {
-      // Marquer l'utilisateur comme supprimé dans les métadonnées
-      // Puisque nous ne pouvons pas supprimer complètement l'utilisateur sans fonction Edge
-      const { error: userUpdateError } = await supabase.auth.updateUser({
-        data: { 
-          deleted: true,
-          deleted_at: new Date().toISOString(),
-          email_disabled: true
-        }
-      });
       
-      if (userUpdateError) {
-        console.error('Erreur lors de la mise à jour de l\'utilisateur:', userUpdateError);
-      } else {
-        console.log('Utilisateur marqué comme supprimé avec succès');
+      // Supprimer complètement l'utilisateur avec la clé de service
+      try {
+        const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+        
+        if (deleteUserError) {
+          console.error('Erreur lors de la suppression de l\'utilisateur:', deleteUserError);
+          
+          // Si la suppression complète échoue, marquer l'utilisateur comme supprimé
+          const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+            user_metadata: { 
+              deleted: true,
+              deleted_at: new Date().toISOString(),
+              email_disabled: true
+            }
+          });
+          
+          if (userUpdateError) {
+            console.error('Erreur lors de la mise à jour de l\'utilisateur:', userUpdateError);
+          } else {
+            console.log('Utilisateur marqué comme supprimé avec succès');
+          }
+        } else {
+          console.log('Utilisateur supprimé avec succès');
+        }
+      } catch (deleteError) {
+        console.error('Exception lors de la suppression de l\'utilisateur:', deleteError);
       }
-    } catch (updateError) {
-      console.error('Erreur lors de la mise à jour de l\'utilisateur:', updateError);
+    } catch (adminError) {
+      console.error('Erreur lors de la création du client admin:', adminError);
+      return NextResponse.json(
+        { error: 'Erreur lors de la création du client admin' },
+        { status: 500 }
+      );
     }
     
     try {
