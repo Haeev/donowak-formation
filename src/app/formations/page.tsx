@@ -1,31 +1,159 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
+import Image from 'next/image';
+import { createClient } from '@/lib/supabase/client';
+import { Loader2, Search, BookOpen, Filter, X, Clock, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-export const revalidate = 3600; // Revalider la page toutes les heures
+interface Formation {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  image_url: string | null;
+  published: boolean;
+  created_at: string;
+  updated_at: string;
+  duration?: number;
+  level?: string;
+  category?: string;
+  students_count?: number;
+}
 
-export default async function FormationsPage({
-  searchParams
-}: {
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }> | undefined
-}) {
-  const resolvedSearchParams = searchParams ? await searchParams : {};
-  const supabase = await createClient();
+export default function FormationsPage() {
+  const [formations, setFormations] = useState<Formation[]>([]);
+  const [filteredFormations, setFilteredFormations] = useState<Formation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeLevel, setActiveLevel] = useState('all');
+  const [categories, setCategories] = useState<string[]>([]);
+  const [levels, setLevels] = useState<string[]>(['Débutant', 'Intermédiaire', 'Avancé']);
+  const [priceFilter, setPriceFilter] = useState<'all' | 'free' | 'paid'>('all');
   
-  // Récupérer les formations publiées
-  const { data: formations, error } = await supabase
-    .from('formations')
-    .select('*')
-    .eq('published', true)
-    .order('created_at', { ascending: false });
+  const supabase = createClient();
+  
+  useEffect(() => {
+    const fetchFormations = async () => {
+      setLoading(true);
+      
+      try {
+        // Récupérer les formations publiées
+        const { data, error } = await supabase
+          .from('formations')
+          .select('*')
+          .eq('published', true)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data) {
+          // Ajouter des données fictives pour la démo
+          const enhancedData = data.map(formation => ({
+            ...formation,
+            duration: formation.duration || Math.floor(Math.random() * 20) + 5,
+            level: formation.level || levels[Math.floor(Math.random() * levels.length)],
+            category: formation.category || ['Développement Web', 'Design', 'Marketing', 'Business', 'Photographie'][Math.floor(Math.random() * 5)],
+            students_count: formation.students_count || Math.floor(Math.random() * 1000)
+          }));
+          
+          setFormations(enhancedData);
+          setFilteredFormations(enhancedData);
+          
+          // Extraire les catégories uniques
+          const uniqueCategories = Array.from(new Set(enhancedData.map(f => f.category))).filter(Boolean) as string[];
+          setCategories(uniqueCategories);
+        }
+      } catch (err) {
+        console.error('Erreur lors de la récupération des formations:', err);
+        setError('Impossible de charger les formations. Veuillez réessayer plus tard.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchFormations();
+  }, []);
+  
+  // Filtrer les formations en fonction des critères
+  useEffect(() => {
+    let result = [...formations];
+    
+    // Filtrer par recherche
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(
+        formation => 
+          formation.title.toLowerCase().includes(query) || 
+          formation.description.toLowerCase().includes(query)
+      );
+    }
+    
+    // Filtrer par catégorie
+    if (activeCategory !== 'all') {
+      result = result.filter(formation => formation.category === activeCategory);
+    }
+    
+    // Filtrer par niveau
+    if (activeLevel !== 'all') {
+      result = result.filter(formation => formation.level === activeLevel);
+    }
+    
+    // Filtrer par prix
+    if (priceFilter === 'free') {
+      result = result.filter(formation => formation.price === 0);
+    } else if (priceFilter === 'paid') {
+      result = result.filter(formation => formation.price > 0);
+    }
+    
+    setFilteredFormations(result);
+  }, [searchQuery, activeCategory, activeLevel, priceFilter, formations]);
+  
+  // Réinitialiser tous les filtres
+  const resetFilters = () => {
+    setSearchQuery('');
+    setActiveCategory('all');
+    setActiveLevel('all');
+    setPriceFilter('all');
+  };
+  
+  // Vérifier si des filtres sont actifs
+  const hasActiveFilters = searchQuery || activeCategory !== 'all' || activeLevel !== 'all' || priceFilter !== 'all';
+  
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg">Chargement des formations...</p>
+      </div>
+    );
+  }
   
   if (error) {
-    console.error('Erreur lors de la récupération des formations:', error);
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg max-w-md w-full text-center">
+          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Erreur</h2>
+          <p className="mb-6">{error}</p>
+          <Button onClick={() => window.location.reload()}>Réessayer</Button>
+        </div>
+      </div>
+    );
   }
   
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
+        <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white sm:text-4xl">
             Nos formations
           </h1>
@@ -34,96 +162,191 @@ export default async function FormationsPage({
           </p>
         </div>
         
-        <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {formations && formations.length > 0 ? (
-            formations.map((formation) => (
-              <div
-                key={formation.id}
-                className="flex flex-col rounded-lg shadow-lg overflow-hidden bg-white dark:bg-gray-800 transition-transform hover:scale-[1.02]"
-              >
-                <div className="flex-shrink-0 h-48 bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-                  <svg
-                    className="h-20 w-20 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="1.5"
-                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                    />
-                  </svg>
-                </div>
-                <div className="flex-1 p-6 flex flex-col justify-between">
-                  <div className="flex-1">
-                    <Link href={`/formations/${formation.id}`} className="block">
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                        {formation.title}
-                      </h3>
-                      <p className="mt-3 text-base text-gray-500 dark:text-gray-300 line-clamp-3">
-                        {formation.description}
-                      </p>
-                    </Link>
-                  </div>
-                  <div className="mt-6 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                          {formation.duration} heures
-                        </span>
-                      </div>
-                      <div className="ml-2">
-                        <span className="text-lg font-medium text-gray-900 dark:text-white">
-                          {formation.price === 0 ? 'Gratuit' : `${formation.price} €`}
-                        </span>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/formations/${formation.id}`}
-                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      Voir détails
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : error ? (
-            <div className="col-span-full text-center py-12">
-              <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">
-                Une erreur est survenue
-              </h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Impossible de charger les formations. Veuillez réessayer plus tard.
-              </p>
+        {/* Barre de recherche et filtres */}
+        <div className="mb-8">
+          <div className="flex flex-col md:flex-row gap-4 mb-4">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <Input
+                type="text"
+                placeholder="Rechercher une formation..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
-          ) : (
-            <div className="col-span-full text-center py-12">
-              <svg
-                className="mx-auto h-12 w-12 text-gray-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                aria-hidden="true"
+            
+            <div className="flex gap-2">
+              <Button 
+                variant={priceFilter === 'all' ? 'default' : 'outline'} 
+                onClick={() => setPriceFilter('all')}
+                size="sm"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-              <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">
-                Aucune formation disponible
-              </h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                De nouvelles formations seront bientôt disponibles.
-              </p>
+                Tous
+              </Button>
+              <Button 
+                variant={priceFilter === 'free' ? 'default' : 'outline'} 
+                onClick={() => setPriceFilter('free')}
+                size="sm"
+              >
+                Gratuit
+              </Button>
+              <Button 
+                variant={priceFilter === 'paid' ? 'default' : 'outline'} 
+                onClick={() => setPriceFilter('paid')}
+                size="sm"
+              >
+                Payant
+              </Button>
             </div>
-          )}
+            
+            {hasActiveFilters && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={resetFilters}
+                className="flex items-center"
+              >
+                <X className="h-4 w-4 mr-2" />
+                Réinitialiser les filtres
+              </Button>
+            )}
+          </div>
+          
+          <Tabs defaultValue="all" value={activeCategory} onValueChange={setActiveCategory} className="w-full">
+            <TabsList className="mb-4 flex flex-wrap">
+              <TabsTrigger value="all">Toutes les catégories</TabsTrigger>
+              {categories.map((category) => (
+                <TabsTrigger key={category} value={category}>
+                  {category}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+          
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">Niveau:</span>
+            <Badge 
+              variant={activeLevel === 'all' ? 'default' : 'outline'}
+              className="cursor-pointer"
+              onClick={() => setActiveLevel('all')}
+            >
+              Tous
+            </Badge>
+            {levels.map((level) => (
+              <Badge 
+                key={level} 
+                variant={activeLevel === level ? 'default' : 'outline'}
+                className="cursor-pointer"
+                onClick={() => setActiveLevel(level)}
+              >
+                {level}
+              </Badge>
+            ))}
+          </div>
         </div>
+        
+        {/* Résultats de recherche */}
+        <div className="mb-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {filteredFormations.length} formation{filteredFormations.length !== 1 ? 's' : ''} trouvée{filteredFormations.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        
+        {/* Liste des formations */}
+        {filteredFormations.length > 0 ? (
+          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+            {filteredFormations.map((formation) => (
+              <Card
+                key={formation.id}
+                className="overflow-hidden transition-transform hover:scale-[1.02]"
+              >
+                <div className="h-48 bg-gradient-to-r from-blue-500 to-indigo-600 relative">
+                  {formation.image_url ? (
+                    <Image
+                      src={formation.image_url}
+                      alt={formation.title}
+                      fill
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <BookOpen className="h-16 w-16 text-white" />
+                    </div>
+                  )}
+                  {formation.price === 0 ? (
+                    <Badge className="absolute top-4 right-4 bg-green-500">Gratuit</Badge>
+                  ) : (
+                    <Badge className="absolute top-4 right-4">{formation.price} €</Badge>
+                  )}
+                </div>
+                
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <CardTitle className="text-xl">{formation.title}</CardTitle>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formation.category && (
+                      <Badge variant="outline">{formation.category}</Badge>
+                    )}
+                    {formation.level && (
+                      <Badge variant="outline">{formation.level}</Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                
+                <CardContent>
+                  <p className="text-gray-600 dark:text-gray-400 line-clamp-3">
+                    {formation.description}
+                  </p>
+                  
+                  <div className="flex items-center justify-between mt-4 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      <span>{formation.duration} heures</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Users className="h-4 w-4 mr-1" />
+                      <span>{formation.students_count} étudiants</span>
+                    </div>
+                  </div>
+                </CardContent>
+                
+                <CardFooter>
+                  <Button asChild className="w-full">
+                    <Link href={`/formations/${formation.id}`}>
+                      Voir les détails
+                    </Link>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
+            <BookOpen className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-lg font-medium text-gray-900 dark:text-white">
+              Aucune formation trouvée
+            </h3>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Essayez de modifier vos critères de recherche ou de réinitialiser les filtres.
+            </p>
+            <Button 
+              onClick={resetFilters} 
+              className="mt-4"
+            >
+              Réinitialiser les filtres
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
