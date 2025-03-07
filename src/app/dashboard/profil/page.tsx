@@ -3,6 +3,19 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -16,15 +29,19 @@ export default function ProfilePage() {
     bio: ''
   });
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   useEffect(() => {
     const fetchUserData = async () => {
       setLoading(true);
-      
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
       
       // Vérifier si l'utilisateur est connecté
       const { data: { session } } = await supabase.auth.getSession();
@@ -72,11 +89,6 @@ export default function ProfilePage() {
     setMessage({ type: '', text: '' });
     
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-      
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -103,6 +115,42 @@ export default function ProfilePage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'SUPPRIMER') {
+      setDeleteError('Veuillez saisir "SUPPRIMER" pour confirmer la suppression de votre compte');
+      return;
+    }
+    
+    setIsDeleting(true);
+    setDeleteError(null);
+    
+    try {
+      if (!user) {
+        throw new Error('Utilisateur non connecté');
+      }
+      
+      // Appeler l'API de suppression de compte
+      const response = await fetch('/api/user/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la suppression du compte');
+      }
+      
+      // Rediriger vers la page d'accueil avec un message
+      router.push('/?message=account_deleted');
+    } catch (error: any) {
+      console.error('Erreur lors de la suppression du compte:', error);
+      setDeleteError(error.message || 'Une erreur est survenue lors de la suppression du compte');
+      setIsDeleting(false);
     }
   };
 
@@ -227,6 +275,70 @@ export default function ProfilePage() {
               </button>
             </div>
           </form>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-8">
+          <h2 className="text-xl font-semibold mb-4 text-red-600 dark:text-red-400">Zone de danger</h2>
+          <p className="mb-4 text-gray-600 dark:text-gray-400">
+            La suppression de votre compte est irréversible. Toutes vos données seront définitivement supprimées.
+          </p>
+          
+          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="destructive">
+                Supprimer mon compte
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Supprimer votre compte</DialogTitle>
+                <DialogDescription>
+                  Cette action est irréversible. Toutes vos données seront définitivement supprimées.
+                  <br /><br />
+                  Pour confirmer, veuillez saisir <strong>SUPPRIMER</strong> ci-dessous.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="py-4">
+                <Input
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder="Saisir SUPPRIMER"
+                  className="mt-1"
+                />
+                
+                {deleteError && (
+                  <div className="mt-2 text-sm text-red-600 dark:text-red-400">
+                    {deleteError}
+                  </div>
+                )}
+              </div>
+              
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsDeleteDialogOpen(false)}
+                  disabled={isDeleting}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleDeleteAccount}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Suppression...
+                    </>
+                  ) : (
+                    'Supprimer définitivement'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

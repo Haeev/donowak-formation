@@ -3,30 +3,72 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSession, signOut } from 'next-auth/react';
 import ThemeToggle from '@/components/theme/ThemeToggle';
 import { Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { data: session, status } = useSession();
-  const isLoggedIn = status === 'authenticated';
-  const isLoading = status === 'loading';
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const pathname = usePathname();
+  const supabase = createClient();
 
-  // Vérifier si l'utilisateur est admin
+  // Vérifier l'état de l'authentification
   useEffect(() => {
-    if (session?.user?.role === 'admin') {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-    }
-  }, [session]);
+    const checkAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data.session) {
+          setIsLoggedIn(true);
+          setUserEmail(data.session.user.email);
+          
+          // Récupérer les informations supplémentaires de l'utilisateur
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('role, full_name')
+            .eq('id', data.session.user.id)
+            .single();
+            
+          if (profileData) {
+            setIsAdmin(profileData.role === 'admin');
+            setUserName(profileData.full_name || data.session.user.email);
+          }
+        } else {
+          setIsLoggedIn(false);
+          setIsAdmin(false);
+          setUserEmail(null);
+          setUserName(null);
+        }
+      } catch (error) {
+        console.error('Erreur lors de la vérification de l\'authentification:', error);
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, [pathname]); // Vérifier à chaque changement de page
 
   const handleLogout = async () => {
     try {
-      await signOut({ redirect: false });
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Rediriger vers la page d'accueil
       window.location.href = '/';
     } catch (error) {
       console.error('Erreur lors de la déconnexion:', error);
@@ -104,7 +146,7 @@ export default function Header() {
             ) : isLoggedIn ? (
               <>
                 <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {session?.user?.email}
+                  {userEmail}
                 </span>
                 <button
                   onClick={handleLogout}
@@ -231,16 +273,16 @@ export default function Header() {
                 <div className="flex-shrink-0">
                   <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                     <span className="text-gray-500 dark:text-gray-300 font-medium">
-                      {session?.user?.email?.charAt(0).toUpperCase()}
+                      {userEmail?.charAt(0).toUpperCase()}
                     </span>
                   </div>
                 </div>
                 <div className="ml-3">
                   <div className="text-base font-medium text-gray-800 dark:text-white">
-                    {session?.user?.name || session?.user?.email}
+                    {userName || userEmail}
                   </div>
                   <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                    {session?.user?.email}
+                    {userEmail}
                   </div>
                 </div>
               </div>
@@ -257,13 +299,13 @@ export default function Header() {
             <div className="space-y-1 px-4">
               <Link
                 href="/auth/login"
-                className="block text-base font-medium text-gray-500 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 px-3 py-2 rounded-md"
+                className="block text-left py-2 text-base font-medium text-gray-500 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 Connexion
               </Link>
               <Link
                 href="/auth/register"
-                className="block text-base font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-2 rounded-md"
+                className="block text-left py-2 text-base font-medium text-gray-500 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
               >
                 Inscription
               </Link>
