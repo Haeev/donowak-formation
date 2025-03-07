@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 
 export async function POST() {
   try {
+    const cookieStore = cookies();
     // Créer le client Supabase
     const supabase = await createClient();
     
@@ -51,7 +52,16 @@ export async function POST() {
     // Déconnecter l'utilisateur
     await supabase.auth.signOut();
     
-    return NextResponse.json({ success: true });
+    // Supprimer les cookies de session
+    const response = NextResponse.json({ success: true });
+    
+    // Supprimer tous les cookies liés à Supabase
+    const supabaseCookies = ['sb-access-token', 'sb-refresh-token', 'supabase-auth-token'];
+    supabaseCookies.forEach(name => {
+      response.cookies.delete(name);
+    });
+    
+    return response;
   } catch (error) {
     console.error('Erreur lors de la suppression du compte:', error);
     return NextResponse.json(

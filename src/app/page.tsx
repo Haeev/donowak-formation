@@ -9,7 +9,7 @@ import { cookies } from 'next/headers';
  * Affiche une présentation de la plateforme de formation
  * Adapte l'interface en fonction de l'état d'authentification de l'utilisateur
  */
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams: { message?: string } }) {
   // Récupération des cookies pour l'authentification
   const cookieStore = cookies();
   // Création du client Supabase côté serveur
@@ -19,8 +19,18 @@ export default async function Home() {
   const { data: { session } } = await supabase.auth.getSession();
   const isLoggedIn = !!session;
 
+  // Message à afficher en fonction des paramètres d'URL
+  const message = searchParams.message;
+
   return (
     <div className="flex flex-col min-h-[80vh]">
+      {/* Message de confirmation après suppression de compte */}
+      {message === 'account_deleted' && (
+        <div className="bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200 p-4 text-center">
+          Votre compte a été supprimé avec succès. Nous espérons vous revoir bientôt !
+        </div>
+      )}
+      
       {/* Section Hero - Présentation principale */}
       <section className="relative flex flex-col items-center justify-center py-20 md:py-32 overflow-hidden">
         {/* Éléments décoratifs animés en arrière-plan */}
