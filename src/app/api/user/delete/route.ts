@@ -35,9 +35,16 @@ export async function POST() {
     
     // Créer le client admin avec la clé de service pour les opérations de suppression
     try {
+      console.log('Création du client admin...');
       const supabaseAdmin = createAdminClient();
+      console.log('Client admin créé avec succès');
+      
+      // Vérifier les variables d'environnement
+      console.log('URL Supabase:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'Définie' : 'Non définie');
+      console.log('Clé de service Supabase:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'Définie' : 'Non définie');
       
       // Supprimer le profil utilisateur
+      console.log('Tentative de suppression du profil utilisateur...');
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .delete()
@@ -52,6 +59,7 @@ export async function POST() {
       
       // Supprimer toutes les données associées à l'utilisateur
       // Supprimer les formations de l'utilisateur
+      console.log('Tentative de suppression des formations de l\'utilisateur...');
       const { error: userFormationsError } = await supabaseAdmin
         .from('user_formations')
         .delete()
@@ -64,6 +72,7 @@ export async function POST() {
       }
       
       // Supprimer les progressions de l'utilisateur
+      console.log('Tentative de suppression des progressions de l\'utilisateur...');
       const { error: userProgressError } = await supabaseAdmin
         .from('user_progress')
         .delete()
@@ -76,6 +85,7 @@ export async function POST() {
       }
       
       // Supprimer les certificats de l'utilisateur
+      console.log('Tentative de suppression des certificats de l\'utilisateur...');
       const { error: userCertificatesError } = await supabaseAdmin
         .from('certificates')
         .delete()
@@ -89,12 +99,14 @@ export async function POST() {
       
       // Supprimer complètement l'utilisateur avec la clé de service
       try {
+        console.log('Tentative de suppression complète de l\'utilisateur...');
         const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId);
         
         if (deleteUserError) {
           console.error('Erreur lors de la suppression de l\'utilisateur:', deleteUserError);
           
           // Si la suppression complète échoue, marquer l'utilisateur comme supprimé
+          console.log('Tentative de marquage de l\'utilisateur comme supprimé...');
           const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
             user_metadata: { 
               deleted: true,
@@ -124,6 +136,7 @@ export async function POST() {
     
     try {
       // Déconnecter l'utilisateur
+      console.log('Tentative de déconnexion de l\'utilisateur...');
       const { error: signOutError } = await supabase.auth.signOut();
       
       if (signOutError) {
@@ -136,6 +149,7 @@ export async function POST() {
     }
     
     // Supprimer les cookies de session
+    console.log('Création de la réponse et suppression des cookies...');
     const response = NextResponse.json({ success: true });
     
     // Supprimer tous les cookies liés à Supabase
