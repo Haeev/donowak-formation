@@ -29,7 +29,7 @@ export default function Header() {
         
         if (data.session) {
           setIsLoggedIn(true);
-          setUserEmail(data.session.user.email);
+          setUserEmail(data.session.user.email || null);
           
           // Récupérer les informations supplémentaires de l'utilisateur
           const { data: profileData } = await supabase
@@ -40,7 +40,7 @@ export default function Header() {
             
           if (profileData) {
             setIsAdmin(profileData.role === 'admin');
-            setUserName(profileData.full_name || data.session.user.email);
+            setUserName(profileData.full_name || data.session.user.email || null);
           }
         } else {
           setIsLoggedIn(false);
