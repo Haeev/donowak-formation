@@ -22,25 +22,37 @@ function LogoutContent() {
         // Effacer les cookies manuellement
         document.cookie.split(';').forEach(cookie => {
           const [name] = cookie.trim().split('=');
-          if (name.includes('supabase') || name.includes('sb-')) {
-            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-          }
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
         });
+        
+        // Vider le localStorage et sessionStorage
+        localStorage.clear();
+        sessionStorage.clear();
         
         // Rediriger vers la page d'accueil avec un message approprié
         if (accountDeleted) {
           setMessage('Votre compte a été supprimé avec succès. Redirection...');
-          window.location.href = '/?message=account_deleted';
+          
+          // Utiliser une redirection forcée pour s'assurer que la page est complètement rechargée
+          setTimeout(() => {
+            window.location.href = '/?message=account_deleted';
+          }, 1500);
         } else {
           setMessage('Vous avez été déconnecté avec succès. Redirection...');
-          window.location.href = '/';
+          
+          // Utiliser une redirection forcée pour s'assurer que la page est complètement rechargée
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 1500);
         }
       } catch (error) {
         console.error('Erreur lors de la déconnexion:', error);
         setMessage('Une erreur est survenue lors de la déconnexion. Redirection...');
+        
+        // Rediriger quand même en cas d'erreur
         setTimeout(() => {
           window.location.href = '/';
-        }, 2000);
+        }, 1500);
       }
     };
     

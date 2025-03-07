@@ -152,7 +152,16 @@ export default function ProfilePage() {
         throw new Error(errorData.error || 'Erreur lors de la suppression du compte');
       }
       
+      // Déconnecter l'utilisateur côté client avant la redirection
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.error('Erreur lors de la déconnexion côté client:', signOutError);
+        // Continuer même en cas d'erreur
+      }
+      
       // Rediriger vers la page de déconnexion avec le paramètre account_deleted
+      // Utiliser une redirection forcée pour s'assurer que la page est complètement rechargée
       window.location.href = '/auth/logout?account_deleted=true';
     } catch (error: any) {
       console.error('Erreur lors de la suppression du compte:', error);
