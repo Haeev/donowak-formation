@@ -1,9 +1,9 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState } from 'react';
 
-function AccountDeletedMessageContent() {
+export default function AccountDeletedMessage() {
   const searchParams = useSearchParams();
   const [showMessage, setShowMessage] = useState(false);
   
@@ -31,13 +31,5 @@ function AccountDeletedMessageContent() {
     <div className="bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200 p-4 text-center">
       Votre compte a été supprimé avec succès. Nous espérons vous revoir bientôt !
     </div>
-  );
-}
-
-export default function AccountDeletedMessage() {
-  return (
-    <Suspense fallback={null}>
-      <AccountDeletedMessageContent />
-    </Suspense>
   );
 } 

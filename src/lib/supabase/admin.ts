@@ -16,10 +16,5 @@ export function createAdminClient() {
   }
   
   // Créer le client avec la clé de service
-  return createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  });
+  return createClient(supabaseUrl, supabaseServiceKey);
 } 
