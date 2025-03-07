@@ -1,29 +1,42 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
-  // Vérifier si l'utilisateur est déjà connecté
-  const { data: session, status } = useSession();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
   
+  // Vérifier si l'utilisateur est déjà connecté
   useEffect(() => {
-    // Si l'utilisateur est déjà connecté, rediriger vers le tableau de bord
-    if (status === 'authenticated') {
-      console.log("Utilisateur déjà connecté, redirection vers le tableau de bord");
-      router.push('/dashboard');
-    }
-  }, [status, router]);
+    const checkSession = async () => {
+      try {
+        const supabase = createClient();
+        const { data } = await supabase.auth.getSession();
+        
+        if (data.session) {
+          console.log("Utilisateur déjà connecté, redirection vers le tableau de bord");
+          router.push('/dashboard');
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error("Erreur lors de la vérification de la session:", error);
+        setIsLoading(false);
+      }
+    };
+    
+    checkSession();
+  }, [router]);
   
   // Afficher un indicateur de chargement pendant la vérification de la session
-  if (status === 'loading') {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -74,45 +87,46 @@ function LoginForm() {
     setSuccessMessage(null);
 
     try {
-      console.log("Tentative de connexion avec:", email);
+      console.log("Tentative de connexion avec Supabase pour:", email);
       
-      // Utiliser NextAuth.js pour la connexion
-      const result = await signIn('credentials', {
-        redirect: false, // Ne pas rediriger automatiquement pour pouvoir gérer les erreurs
+      // Utiliser Supabase directement pour l'authentification
+      const supabase = createClient();
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-        callbackUrl,
       });
       
-      console.log("Résultat de la connexion:", result);
-      
-      if (result?.error) {
-        console.error("Erreur de connexion:", result.error);
-        
-        // Traduire les messages d'erreur courants
-        if (result.error === "CredentialsSignin") {
-          throw new Error("Email ou mot de passe incorrect");
-        } else {
-          throw new Error(result.error);
-        }
+      if (error) {
+        console.error("Erreur d'authentification Supabase:", error.message);
+        throw new Error(error.message);
       }
       
-      if (!result?.ok) {
-        throw new Error("La connexion a échoué pour une raison inconnue");
+      if (!data.user) {
+        throw new Error("Aucun utilisateur trouvé");
       }
 
-      console.log("Connexion réussie!");
+      console.log("Connexion réussie pour:", data.user.email);
       setSuccessMessage("Connexion réussie! Redirection en cours...");
       
       // Attendre un court instant avant de rediriger
       setTimeout(() => {
-        // Utiliser window.location pour une redirection complète
+        // Rediriger vers le tableau de bord ou l'URL de callback
         window.location.href = callbackUrl;
       }, 1000);
       
     } catch (error: any) {
       console.error("Erreur complète:", error);
-      setError(error.message || "Une erreur est survenue lors de la connexion");
+      
+      // Traduire les messages d'erreur courants de Supabase
+      let errorMessage = error.message;
+      if (error.message.includes("Invalid login credentials")) {
+        errorMessage = "Email ou mot de passe incorrect";
+      } else if (error.message.includes("Email not confirmed")) {
+        errorMessage = "Veuillez confirmer votre email avant de vous connecter";
+      }
+      
+      setError(errorMessage || "Une erreur est survenue lors de la connexion");
       setLoading(false);
     }
   };
