@@ -372,10 +372,16 @@ export default function DashboardPage() {
                 Membre depuis {new Date(userProfile.created_at).toLocaleDateString()}
               </p>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex space-x-2">
               <Button asChild variant="outline">
                 <Link href="/dashboard/profil" className="flex items-center">
                   Modifier mon profil
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild>
+                <Link href="/dashboard/statistiques" className="flex items-center">
+                  Voir mes statistiques
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
