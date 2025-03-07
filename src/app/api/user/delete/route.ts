@@ -31,7 +31,7 @@ export async function POST() {
     }
     
     const userId = session.user.id;
-    console.log('ID utilisateur à supprimer:', userId);
+    console.log('ID utilisateur à marquer comme supprimé:', userId);
     
     // Créer le client admin avec la clé de service pour les opérations de suppression
     try {
@@ -83,77 +83,68 @@ export async function POST() {
         console.log('Certificats de l\'utilisateur supprimées avec succès');
       }
       
-      // Supprimer le profil utilisateur en dernier
-      console.log('Tentative de suppression du profil utilisateur...');
-      const { error: profileError } = await supabaseAdmin
+      // Mettre à jour le profil utilisateur pour le marquer comme supprimé
+      console.log('Tentative de mise à jour du profil utilisateur...');
+      const { error: profileUpdateError } = await supabaseAdmin
         .from('profiles')
-        .delete()
+        .update({
+          is_deleted: true,
+          deleted_at: new Date().toISOString(),
+          email: `deleted_${userId}@deleted.com`, // Anonymiser l'email
+          full_name: 'Compte supprimé',
+          avatar_url: null,
+          phone: null,
+          bio: null
+        })
         .eq('id', userId);
         
-      if (profileError) {
-        console.error('Erreur lors de la suppression du profil:', profileError);
+      if (profileUpdateError) {
+        console.error('Erreur lors de la mise à jour du profil:', profileUpdateError);
       } else {
-        console.log('Profil utilisateur supprimé avec succès');
+        console.log('Profil utilisateur marqué comme supprimé avec succès');
       }
       
-      // Essayer de supprimer l'utilisateur directement
-      try {
-        console.log('Tentative de suppression de l\'utilisateur avec auth.admin.deleteUser...');
-        const { error: deleteUserError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-        
-        if (deleteUserError) {
-          console.error('Erreur lors de la suppression de l\'utilisateur avec auth.admin.deleteUser:', deleteUserError);
-          
-          // Essayer une autre approche
-          console.log('Tentative de suppression de l\'utilisateur avec rpc...');
-          const { error: rpcError } = await supabaseAdmin.rpc('delete_user', { user_id: userId });
-          
-          if (rpcError) {
-            console.error('Erreur lors de la suppression de l\'utilisateur avec rpc:', rpcError);
-            
-            // Si toutes les tentatives échouent, marquer l'utilisateur comme supprimé
-            console.log('Tentative de marquage de l\'utilisateur comme supprimé...');
-            const { error: updateError } = await supabaseAdmin.auth.updateUser({
-              data: { 
-                deleted: true,
-                deleted_at: new Date().toISOString(),
-                email_disabled: true
-              }
-            });
-            
-            if (updateError) {
-              console.error('Erreur lors de la mise à jour de l\'utilisateur:', updateError);
-            } else {
-              console.log('Utilisateur marqué comme supprimé avec succès');
-            }
-          } else {
-            console.log('Utilisateur supprimé avec succès via rpc');
-          }
-        } else {
-          console.log('Utilisateur supprimé avec succès via auth.admin.deleteUser');
+      // Marquer l'utilisateur comme supprimé dans les métadonnées
+      console.log('Tentative de marquage de l\'utilisateur comme supprimé...');
+      const { error: userUpdateError } = await supabaseAdmin.auth.updateUser({
+        email: `deleted_${userId}@deleted.com`, // Anonymiser l'email
+        data: { 
+          deleted: true,
+          deleted_at: new Date().toISOString(),
+          email_disabled: true
         }
-      } catch (deleteError) {
-        console.error('Exception lors de la suppression de l\'utilisateur:', deleteError);
-        
-        // Si une exception est levée, essayer de marquer l'utilisateur comme supprimé
-        try {
-          console.log('Tentative de marquage de l\'utilisateur comme supprimé après exception...');
-          const { error: updateError } = await supabaseAdmin.auth.updateUser({
-            data: { 
+      });
+      
+      if (userUpdateError) {
+        console.error('Erreur lors de la mise à jour de l\'utilisateur:', userUpdateError);
+      } else {
+        console.log('Utilisateur marqué comme supprimé avec succès');
+      }
+      
+      // Désactiver l'utilisateur
+      console.log('Tentative de désactivation de l\'utilisateur...');
+      try {
+        const { error: disableError } = await supabaseAdmin.auth.admin.updateUserById(
+          userId,
+          { 
+            user_metadata: { 
               deleted: true,
               deleted_at: new Date().toISOString(),
-              email_disabled: true
+              disabled: true
+            },
+            app_metadata: {
+              disabled: true
             }
-          });
-          
-          if (updateError) {
-            console.error('Erreur lors de la mise à jour de l\'utilisateur après exception:', updateError);
-          } else {
-            console.log('Utilisateur marqué comme supprimé avec succès après exception');
           }
-        } catch (updateError) {
-          console.error('Exception lors de la mise à jour de l\'utilisateur après exception:', updateError);
+        );
+        
+        if (disableError) {
+          console.error('Erreur lors de la désactivation de l\'utilisateur:', disableError);
+        } else {
+          console.log('Utilisateur désactivé avec succès');
         }
+      } catch (disableError) {
+        console.error('Exception lors de la désactivation de l\'utilisateur:', disableError);
       }
     } catch (adminError) {
       console.error('Erreur lors de la création du client admin:', adminError);
@@ -192,7 +183,7 @@ export async function POST() {
       console.error('Erreur lors de la suppression des cookies:', cookieError);
     }
     
-    console.log('Suppression de compte terminée avec succès');
+    console.log('Compte marqué comme supprimé avec succès');
     return response;
   } catch (error) {
     console.error('Erreur globale lors de la suppression du compte:', error);

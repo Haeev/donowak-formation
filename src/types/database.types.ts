@@ -17,6 +17,10 @@ export interface Database {
           email: string
           full_name: string | null
           avatar_url: string | null
+          is_deleted: boolean | null
+          deleted_at: string | null
+          phone: string | null
+          bio: string | null
         }
         Insert: {
           id: string
@@ -25,6 +29,10 @@ export interface Database {
           email: string
           full_name?: string | null
           avatar_url?: string | null
+          is_deleted?: boolean | null
+          deleted_at?: string | null
+          phone?: string | null
+          bio?: string | null
         }
         Update: {
           id?: string
@@ -33,6 +41,10 @@ export interface Database {
           email?: string
           full_name?: string | null
           avatar_url?: string | null
+          is_deleted?: boolean | null
+          deleted_at?: string | null
+          phone?: string | null
+          bio?: string | null
         }
         Relationships: [
           {
