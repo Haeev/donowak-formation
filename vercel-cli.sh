@@ -10,7 +10,7 @@ show_help() {
   echo "Commandes disponibles:"
   echo "  deploy [message]    Commiter les changements avec le message spécifié (ou auto-généré) et déployer sur Vercel"
   echo "  status              Vérifier l'état du déploiement actuel et afficher les logs"
-  echo "  logs                Afficher les logs du déploiement"
+  echo "  logs [url]          Afficher les logs du déploiement (url optionnelle)"
   echo "  preview             Créer un déploiement de prévisualisation sans le mettre en production"
   echo "  help                Afficher cette aide"
   echo ""
@@ -48,7 +48,19 @@ case "$1" in
   logs)
     # Afficher les logs
     echo "📋 Récupération des logs de déploiement..."
-    vercel logs
+    if [ -z "$2" ]; then
+      # Si aucune URL n'est fournie, récupérer le dernier déploiement
+      LATEST_DEPLOYMENT=$(vercel list --prod | grep "https://" | head -n 1 | awk '{print $2}')
+      if [ -z "$LATEST_DEPLOYMENT" ]; then
+        echo "❌ Aucun déploiement trouvé."
+        exit 1
+      fi
+      echo "🔗 Dernier déploiement: $LATEST_DEPLOYMENT"
+      vercel logs "$LATEST_DEPLOYMENT"
+    else
+      # Utiliser l'URL fournie
+      vercel logs "$2"
+    fi
     ;;
     
   preview)

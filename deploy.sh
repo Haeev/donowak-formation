@@ -57,19 +57,19 @@ echo "✅ Build vérifié avec succès."
 
 # Déployer sur Vercel avec les logs détaillés
 echo "📦 Déploiement sur Vercel en cours..."
-vercel deploy --prod --yes
+vercel deploy --prod
 
 # Vérifier si le déploiement a réussi
 if [ $? -eq 0 ]; then
   echo "✅ Déploiement réussi !"
   
+  # Récupérer l'URL du déploiement
+  LATEST_DEPLOYMENT=$(vercel list --prod | grep "https://" | head -n 1 | awk '{print $2}')
+  echo "🌐 Application déployée sur: $LATEST_DEPLOYMENT"
+  
   # Récupérer les logs du déploiement
   echo "📋 Récupération des logs de déploiement..."
-  vercel logs
-  
-  # Récupérer l'URL du déploiement
-  DEPLOY_URL=$(vercel --prod)
-  echo "🌐 Application déployée sur: $DEPLOY_URL"
+  vercel logs "$LATEST_DEPLOYMENT"
 else
   echo "❌ Le déploiement a échoué. Veuillez vérifier les erreurs ci-dessus."
 fi
