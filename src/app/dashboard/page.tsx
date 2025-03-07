@@ -199,14 +199,11 @@ export default function DashboardPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Gestion de votre compte</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Gérez vos informations personnelles ou supprimez votre compte.
+            Gérez vos informations personnelles.
           </p>
           <div className="flex space-x-4">
             <Button asChild variant="outline">
               <Link href="/dashboard/profil">Modifier mon profil</Link>
-            </Button>
-            <Button asChild variant="destructive">
-              <Link href="/dashboard/profil#delete">Supprimer mon compte</Link>
             </Button>
           </div>
         </div>
@@ -233,14 +230,11 @@ export default function DashboardPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
         <h2 className="text-xl font-semibold mb-4">Gestion de votre compte</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Gérez vos informations personnelles ou supprimez votre compte.
+          Gérez vos informations personnelles.
         </p>
         <div className="flex space-x-4">
           <Button asChild variant="outline">
             <Link href="/dashboard/profil">Modifier mon profil</Link>
-          </Button>
-          <Button asChild variant="destructive">
-            <Link href="/dashboard/profil#delete">Supprimer mon compte</Link>
           </Button>
         </div>
       </div>
