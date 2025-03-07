@@ -194,6 +194,23 @@ export default function DashboardPage() {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold mb-6">Votre tableau de bord</h1>
+        
+        {/* Section de gestion du profil */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">Gestion de votre compte</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
+            Gérez vos informations personnelles ou supprimez votre compte.
+          </p>
+          <div className="flex space-x-4">
+            <Button asChild variant="outline">
+              <Link href="/dashboard/profil">Modifier mon profil</Link>
+            </Button>
+            <Button asChild variant="destructive">
+              <Link href="/dashboard/profil#delete">Supprimer mon compte</Link>
+            </Button>
+          </div>
+        </div>
+        
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-4">Vos formations</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -212,19 +229,28 @@ export default function DashboardPage() {
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Votre tableau de bord</h1>
       
+      {/* Section de gestion du profil */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+        <h2 className="text-xl font-semibold mb-4">Gestion de votre compte</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Gérez vos informations personnelles ou supprimez votre compte.
+        </p>
+        <div className="flex space-x-4">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/profil">Modifier mon profil</Link>
+          </Button>
+          <Button asChild variant="destructive">
+            <Link href="/dashboard/profil#delete">Supprimer mon compte</Link>
+          </Button>
+        </div>
+      </div>
+      
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
         {/* En-tête avec le nom de l'utilisateur */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Vos formations</h2>
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" asChild>
-              <Link href="/dashboard/profil">
-                Gérer votre profil
-              </Link>
-            </Button>
-            <div className="text-sm text-gray-500">
-              {userId && <span>Connecté</span>}
-            </div>
+          <div className="text-sm text-gray-500">
+            {userId && <span>Connecté</span>}
           </div>
         </div>
         

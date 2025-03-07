@@ -78,6 +78,13 @@ export default function ProfilePage() {
     fetchUserData();
   }, [router]);
 
+  // Vérifier si l'URL contient l'ancre #delete pour ouvrir automatiquement la boîte de dialogue
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#delete') {
+      setIsDeleteDialogOpen(true);
+    }
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
