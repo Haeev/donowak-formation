@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
 /**
@@ -8,14 +8,29 @@ import { updateSession } from '@/lib/supabase/middleware';
  * @returns La réponse modifiée avec les cookies de session mis à jour
  */
 export async function middleware(request: NextRequest) {
+  // Obtenir l'URL actuelle
+  const url = new URL(request.url);
+  const path = url.pathname;
+  
+  // Exclure explicitement les routes d'API NextAuth pour éviter les conflits
+  if (path.startsWith('/api/auth')) {
+    console.log(`Middleware - Route d'API NextAuth ignorée: ${path}`);
+    return NextResponse.next();
+  }
+  
   return updateSession(request);
 }
 
 /**
  * Configuration du middleware
  * Définit les routes sur lesquelles le middleware doit s'exécuter
- * Exclut les routes API, les fichiers statiques, les images et favicon
+ * Exclut les routes API NextAuth, les fichiers statiques, les images et favicon
  */
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: [
+    // Inclure toutes les routes sauf celles spécifiées
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+    // Exclure explicitement les routes d'API NextAuth
+    '/((?!api/auth).*)',
+  ],
 }; 

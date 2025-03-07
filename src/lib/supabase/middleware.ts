@@ -15,6 +15,20 @@ export async function updateSession(request: NextRequest) {
   
   console.log(`Middleware - URL: ${path}`);
   
+  // Vérifier si la requête provient déjà d'une redirection pour éviter les boucles
+  const redirectCount = request.headers.get('x-redirect-count') || '0';
+  const redirectCountNum = parseInt(redirectCount, 10);
+  
+  // Si nous avons déjà redirigé plusieurs fois, arrêter pour éviter une boucle
+  if (redirectCountNum > 2) {
+    console.log(`Middleware - Trop de redirections (${redirectCountNum}), arrêt pour éviter une boucle`);
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    });
+  }
+  
   // Créer une réponse initiale
   let response = NextResponse.next({
     request: {
@@ -84,6 +98,18 @@ export async function updateSession(request: NextRequest) {
     // Routes d'authentification (login, register) qui ne devraient pas être accessibles si déjà connecté
     const authRoutes = ['/auth/login', '/auth/register'];
     
+    // Routes à ignorer (gérées par NextAuth ou autres systèmes)
+    const ignoredRoutes = ['/api/auth', '/auth/callback', '/auth/confirm', '/auth/email-confirmed'];
+    
+    // Vérifier si la route actuelle doit être ignorée
+    const shouldIgnoreRoute = ignoredRoutes.some(route => path.startsWith(route));
+    
+    // Si la route doit être ignorée, ne pas appliquer de redirection
+    if (shouldIgnoreRoute) {
+      console.log(`Middleware - Route ignorée: ${path}`);
+      return response;
+    }
+    
     // Vérifier si l'utilisateur tente d'accéder à une route protégée
     const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
     
@@ -95,13 +121,25 @@ export async function updateSession(request: NextRequest) {
     // Rediriger les utilisateurs non authentifiés qui tentent d'accéder à une route protégée
     if (!session && isProtectedRoute) {
       console.log('Middleware - Redirection vers la page de connexion');
-      return NextResponse.redirect(new URL('/auth/login', request.url));
+      const redirectUrl = new URL('/auth/login', request.url);
+      const redirectResponse = NextResponse.redirect(redirectUrl);
+      
+      // Incrémenter le compteur de redirections
+      redirectResponse.headers.set('x-redirect-count', (redirectCountNum + 1).toString());
+      
+      return redirectResponse;
     }
 
     // Rediriger les utilisateurs authentifiés qui tentent d'accéder aux pages d'authentification
     if (session && isAuthRoute) {
       console.log('Middleware - Redirection vers le tableau de bord');
-      return NextResponse.redirect(new URL('/dashboard', request.url));
+      const redirectUrl = new URL('/dashboard', request.url);
+      const redirectResponse = NextResponse.redirect(redirectUrl);
+      
+      // Incrémenter le compteur de redirections
+      redirectResponse.headers.set('x-redirect-count', (redirectCountNum + 1).toString());
+      
+      return redirectResponse;
     }
   } catch (error) {
     console.error('Middleware - Erreur:', error);
