@@ -3,19 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,10 +19,6 @@ export default function ProfilePage() {
     bio: ''
   });
   const [message, setMessage] = useState({ type: '', text: '' });
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deleteConfirmation, setDeleteConfirmation] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,7 +67,7 @@ export default function ProfilePage() {
   // Vérifier si l'URL contient l'ancre #delete pour ouvrir automatiquement la boîte de dialogue
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hash === '#delete') {
-      setIsDeleteDialogOpen(true);
+      // setIsDeleteDialogOpen(true);
     }
   }, []);
 
@@ -122,49 +108,6 @@ export default function ProfilePage() {
       });
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (deleteConfirmation !== 'SUPPRIMER') {
-      setDeleteError('Veuillez saisir "SUPPRIMER" pour confirmer la suppression de votre compte');
-      return;
-    }
-    
-    setIsDeleting(true);
-    setDeleteError(null);
-    
-    try {
-      // Appeler l'API de suppression de compte
-      const response = await fetch('/api/user/delete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Erreur lors de la suppression du compte');
-      }
-      
-      // Forcer la déconnexion côté client
-      await supabase.auth.signOut();
-      
-      // Effacer les cookies et le stockage local
-      document.cookie.split(';').forEach(cookie => {
-        const [name] = cookie.trim().split('=');
-        document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-      });
-      
-      localStorage.clear();
-      sessionStorage.clear();
-      
-      // Rediriger vers la page d'accueil
-      window.location.href = '/';
-    } catch (error) {
-      console.error('Erreur:', error);
-      setDeleteError('Une erreur est survenue lors de la suppression du compte');
-      setIsDeleting(false);
     }
   };
 
@@ -289,70 +232,6 @@ export default function ProfilePage() {
               </button>
             </div>
           </form>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-8">
-          <h2 className="text-xl font-semibold mb-4 text-red-600 dark:text-red-400">Zone de danger</h2>
-          <p className="mb-4 text-gray-600 dark:text-gray-400">
-            La suppression de votre compte est irréversible. Toutes vos données seront définitivement supprimées.
-          </p>
-          
-          <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="destructive">
-                Supprimer mon compte
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Supprimer votre compte</DialogTitle>
-                <DialogDescription>
-                  Cette action est irréversible. Toutes vos données seront définitivement supprimées.
-                  <br /><br />
-                  Pour confirmer, veuillez saisir <strong>SUPPRIMER</strong> ci-dessous.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="py-4">
-                <Input
-                  value={deleteConfirmation}
-                  onChange={(e) => setDeleteConfirmation(e.target.value)}
-                  placeholder="Saisir SUPPRIMER"
-                  className="mt-1"
-                />
-                
-                {deleteError && (
-                  <div className="mt-2 text-sm text-red-600 dark:text-red-400">
-                    {deleteError}
-                  </div>
-                )}
-              </div>
-              
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDeleteDialogOpen(false)}
-                  disabled={isDeleting}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleDeleteAccount}
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Suppression...
-                    </>
-                  ) : (
-                    'Supprimer définitivement'
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
     </div>
