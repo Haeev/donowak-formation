@@ -65,32 +65,19 @@ export async function POST() {
       console.error('Erreur lors de la suppression des certificats de l\'utilisateur:', userCertificatesError);
     }
     
-    // Obtenir le token d'accès pour l'API Supabase
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
-    const accessToken = currentSession?.access_token;
-    
-    // Appeler la fonction Edge pour supprimer l'utilisateur
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-user`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify({
-          userId,
-          authToken: accessToken
-        })
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Erreur lors de l\'appel à la fonction Edge:', errorData);
-        // Continuer même si la fonction Edge échoue, car nous avons déjà supprimé les données de l'utilisateur
+    // Marquer l'utilisateur comme supprimé dans les métadonnées
+    // Puisque nous ne pouvons pas supprimer complètement l'utilisateur sans fonction Edge
+    const { error: userUpdateError } = await supabase.auth.updateUser({
+      data: { 
+        deleted: true,
+        deleted_at: new Date().toISOString(),
+        email_disabled: true
       }
-    } catch (edgeError) {
-      console.error('Erreur lors de l\'appel à la fonction Edge:', edgeError);
-      // Continuer même si la fonction Edge échoue
+    });
+    
+    if (userUpdateError) {
+      console.error('Erreur lors de la mise à jour de l\'utilisateur:', userUpdateError);
+      // Continuer même en cas d'erreur
     }
     
     // Déconnecter l'utilisateur
