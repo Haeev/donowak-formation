@@ -4,12 +4,16 @@ import { Button } from '@/components/ui/button';
 import { createClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
+type HomeProps = {
+  searchParams: { [key: string]: string | string[] | undefined };
+};
+
 /**
  * Page d'accueil de l'application
  * Affiche une présentation de la plateforme de formation
  * Adapte l'interface en fonction de l'état d'authentification de l'utilisateur
  */
-export default async function Home({ searchParams }: { searchParams: { message?: string } }) {
+export default async function Home({ searchParams }: HomeProps) {
   // Récupération des cookies pour l'authentification
   const cookieStore = cookies();
   // Création du client Supabase côté serveur
@@ -20,7 +24,7 @@ export default async function Home({ searchParams }: { searchParams: { message?:
   const isLoggedIn = !!session;
 
   // Message à afficher en fonction des paramètres d'URL
-  const message = searchParams.message;
+  const message = searchParams.message as string | undefined;
 
   return (
     <div className="flex flex-col min-h-[80vh]">

@@ -1,54 +1,56 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { signOut } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 
 export default function LogoutPage() {
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const [message, setMessage] = useState('Déconnexion en cours...');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const accountDeleted = searchParams.get('account_deleted') === 'true';
+  
   useEffect(() => {
     const handleLogout = async () => {
       try {
-        console.log('Déconnexion en cours...');
-        setIsLoading(true);
+        const supabase = createClient();
         
-        // Déconnexion via NextAuth.js
-        await signOut({ redirect: false });
+        // Déconnecter l'utilisateur
+        await supabase.auth.signOut();
         
-        console.log('Déconnexion réussie, redirection...');
+        // Effacer les cookies manuellement
+        document.cookie.split(';').forEach(cookie => {
+          const [name] = cookie.trim().split('=');
+          if (name.includes('supabase') || name.includes('sb-')) {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          }
+        });
         
-        // Rediriger vers la page d'accueil après une courte pause
+        // Rediriger vers la page d'accueil avec un message approprié
+        if (accountDeleted) {
+          setMessage('Votre compte a été supprimé avec succès. Redirection...');
+          window.location.href = '/?message=account_deleted';
+        } else {
+          setMessage('Vous avez été déconnecté avec succès. Redirection...');
+          window.location.href = '/';
+        }
+      } catch (error) {
+        console.error('Erreur lors de la déconnexion:', error);
+        setMessage('Une erreur est survenue lors de la déconnexion. Redirection...');
         setTimeout(() => {
           window.location.href = '/';
-        }, 1000);
-      } catch (err) {
-        console.error('Erreur inattendue lors de la déconnexion:', err);
-        setError('Une erreur inattendue est survenue lors de la déconnexion.');
-        setIsLoading(false);
+        }, 2000);
       }
     };
-
+    
     handleLogout();
-  }, []);
-
+  }, [accountDeleted]);
+  
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh]">
-      {isLoading ? (
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-lg">Déconnexion en cours...</p>
-        </div>
-      ) : error ? (
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-500">Erreur</h1>
-          <p className="mt-2">{error}</p>
-          <a href="/" className="mt-4 inline-block text-primary hover:underline">
-            Retour à l'accueil
-          </a>
-        </div>
-      ) : null}
+      <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+      <p className="text-lg">{message}</p>
     </div>
   );
 } 

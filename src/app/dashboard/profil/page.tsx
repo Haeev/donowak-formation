@@ -152,19 +152,8 @@ export default function ProfilePage() {
         throw new Error(errorData.error || 'Erreur lors de la suppression du compte');
       }
       
-      // Déconnecter l'utilisateur côté client
-      await supabase.auth.signOut();
-      
-      // Effacer les cookies manuellement
-      document.cookie.split(';').forEach(cookie => {
-        const [name] = cookie.trim().split('=');
-        if (name.includes('supabase') || name.includes('sb-')) {
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-        }
-      });
-      
-      // Rediriger vers la page d'accueil avec un message
-      window.location.href = '/?message=account_deleted';
+      // Rediriger vers la page de déconnexion avec le paramètre account_deleted
+      window.location.href = '/auth/logout?account_deleted=true';
     } catch (error: any) {
       console.error('Erreur lors de la suppression du compte:', error);
       setDeleteError(error.message || 'Une erreur est survenue lors de la suppression du compte');
