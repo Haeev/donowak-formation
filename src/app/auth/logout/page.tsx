@@ -13,46 +13,69 @@ function LogoutContent() {
   
   useEffect(() => {
     const handleLogout = async () => {
+      console.log('Page de déconnexion chargée, paramètre account_deleted:', accountDeleted);
+      
       try {
         const supabase = createClient();
         
         // Déconnecter l'utilisateur
-        await supabase.auth.signOut();
+        try {
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.error('Erreur lors de la déconnexion Supabase:', error);
+          } else {
+            console.log('Déconnexion Supabase réussie');
+          }
+        } catch (signOutError) {
+          console.error('Exception lors de la déconnexion Supabase:', signOutError);
+        }
         
         // Effacer les cookies manuellement
-        document.cookie.split(';').forEach(cookie => {
-          const [name] = cookie.trim().split('=');
-          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-        });
+        try {
+          document.cookie.split(';').forEach(cookie => {
+            const [name] = cookie.trim().split('=');
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          });
+          console.log('Cookies effacés');
+        } catch (cookieError) {
+          console.error('Erreur lors de l\'effacement des cookies:', cookieError);
+        }
         
         // Vider le localStorage et sessionStorage
-        localStorage.clear();
-        sessionStorage.clear();
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+          console.log('Storage local effacé');
+        } catch (storageError) {
+          console.error('Erreur lors de l\'effacement du storage:', storageError);
+        }
         
         // Rediriger vers la page d'accueil avec un message approprié
         if (accountDeleted) {
           setMessage('Votre compte a été supprimé avec succès. Redirection...');
+          console.log('Compte supprimé, redirection vers la page d\'accueil');
           
           // Utiliser une redirection forcée pour s'assurer que la page est complètement rechargée
           setTimeout(() => {
-            window.location.href = '/?message=account_deleted';
-          }, 1500);
+            window.location.replace('/?message=account_deleted');
+          }, 2000);
         } else {
           setMessage('Vous avez été déconnecté avec succès. Redirection...');
+          console.log('Déconnexion réussie, redirection vers la page d\'accueil');
           
           // Utiliser une redirection forcée pour s'assurer que la page est complètement rechargée
           setTimeout(() => {
-            window.location.href = '/';
-          }, 1500);
+            window.location.replace('/');
+          }, 2000);
         }
       } catch (error) {
-        console.error('Erreur lors de la déconnexion:', error);
+        console.error('Erreur globale lors de la déconnexion:', error);
         setMessage('Une erreur est survenue lors de la déconnexion. Redirection...');
         
         // Rediriger quand même en cas d'erreur
         setTimeout(() => {
-          window.location.href = '/';
-        }, 1500);
+          window.location.replace('/');
+        }, 2000);
       }
     };
     
