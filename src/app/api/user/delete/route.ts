@@ -83,19 +83,47 @@ export async function POST() {
         console.log('Certificats de l\'utilisateur supprimées avec succès');
       }
       
+      // Vérifier si la colonne is_deleted existe
+      console.log('Vérification de la structure de la table profiles...');
+      const { data: profileColumns, error: columnsError } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .limit(1);
+        
+      if (columnsError) {
+        console.error('Erreur lors de la vérification de la structure de la table:', columnsError);
+      }
+      
       // Mettre à jour le profil utilisateur pour le marquer comme supprimé
       console.log('Tentative de mise à jour du profil utilisateur...');
+      
+      // Préparer les données de mise à jour en fonction des colonnes disponibles
+      const updateData: any = {
+        email: `deleted_${userId}@deleted.com`, // Anonymiser l'email
+        full_name: 'Compte supprimé',
+        avatar_url: null
+      };
+      
+      // Ajouter les colonnes supplémentaires si elles existent
+      if (profileColumns && profileColumns.length > 0) {
+        const firstProfile = profileColumns[0];
+        if ('is_deleted' in firstProfile) {
+          updateData.is_deleted = true;
+        }
+        if ('deleted_at' in firstProfile) {
+          updateData.deleted_at = new Date().toISOString();
+        }
+        if ('phone' in firstProfile) {
+          updateData.phone = null;
+        }
+        if ('bio' in firstProfile) {
+          updateData.bio = null;
+        }
+      }
+      
       const { error: profileUpdateError } = await supabaseAdmin
         .from('profiles')
-        .update({
-          is_deleted: true,
-          deleted_at: new Date().toISOString(),
-          email: `deleted_${userId}@deleted.com`, // Anonymiser l'email
-          full_name: 'Compte supprimé',
-          avatar_url: null,
-          phone: null,
-          bio: null
-        })
+        .update(updateData)
         .eq('id', userId);
         
       if (profileUpdateError) {
@@ -106,14 +134,20 @@ export async function POST() {
       
       // Marquer l'utilisateur comme supprimé dans les métadonnées
       console.log('Tentative de marquage de l\'utilisateur comme supprimé...');
-      const { error: userUpdateError } = await supabaseAdmin.auth.updateUser({
-        email: `deleted_${userId}@deleted.com`, // Anonymiser l'email
-        data: { 
-          deleted: true,
-          deleted_at: new Date().toISOString(),
-          email_disabled: true
+      const { error: userUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+        userId,
+        {
+          email: `deleted_${userId}@deleted.com`, // Anonymiser l'email
+          user_metadata: { 
+            deleted: true,
+            deleted_at: new Date().toISOString(),
+            disabled: true
+          },
+          app_metadata: {
+            disabled: true
+          }
         }
-      });
+      );
       
       if (userUpdateError) {
         console.error('Erreur lors de la mise à jour de l\'utilisateur:', userUpdateError);
@@ -154,10 +188,11 @@ export async function POST() {
       );
     }
     
+    // Déconnecter l'utilisateur avec une approche plus agressive
     try {
       // Déconnecter l'utilisateur
       console.log('Tentative de déconnexion de l\'utilisateur...');
-      const { error: signOutError } = await supabase.auth.signOut();
+      const { error: signOutError } = await supabase.auth.signOut({ scope: 'global' });
       
       if (signOutError) {
         console.error('Erreur lors de la déconnexion:', signOutError);
@@ -170,14 +205,31 @@ export async function POST() {
     
     // Supprimer les cookies de session
     console.log('Création de la réponse et suppression des cookies...');
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({ 
+      success: true,
+      redirectTo: '/auth/logout?account_deleted=true'
+    });
     
     // Supprimer tous les cookies liés à Supabase
     try {
-      const supabaseCookies = ['sb-access-token', 'sb-refresh-token', 'supabase-auth-token'];
-      supabaseCookies.forEach(name => {
+      // Liste des cookies à supprimer
+      const supabaseCookies = [
+        'sb-access-token', 
+        'sb-refresh-token', 
+        'supabase-auth-token',
+        'sb:token',
+        'sb-provider-token',
+        '__session',
+        'next-auth.session-token',
+        'next-auth.callback-url',
+        'next-auth.csrf-token'
+      ];
+      
+      // Supprimer tous les cookies
+      for (const name of supabaseCookies) {
         response.cookies.delete(name);
-      });
+      }
+      
       console.log('Cookies supprimés avec succès');
     } catch (cookieError) {
       console.error('Erreur lors de la suppression des cookies:', cookieError);
