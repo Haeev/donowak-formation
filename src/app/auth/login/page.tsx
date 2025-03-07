@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { signIn } from 'next-auth/react';
+import { useState, useEffect } from 'react';
+import { signIn, useSession } from 'next-auth/react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,27 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
+  // Vérifier si l'utilisateur est déjà connecté
+  const { status } = useSession();
+  const router = useRouter();
+  
+  useEffect(() => {
+    // Si l'utilisateur est déjà connecté, rediriger vers le tableau de bord
+    if (status === 'authenticated') {
+      router.push('/dashboard');
+    }
+  }, [status, router]);
+  
+  // Afficher un indicateur de chargement pendant la vérification de la session
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <p className="mt-4 text-gray-600 dark:text-gray-400">Vérification de votre session...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -38,6 +60,11 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  // Récupérer l'URL de redirection si elle existe
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,11 +75,12 @@ function LoginForm() {
     try {
       console.log("Tentative de connexion avec:", email);
       
-      // Utiliser NextAuth.js pour la connexion
+      // Utiliser NextAuth.js pour la connexion avec redirection automatique
       const result = await signIn('credentials', {
-        redirect: false,
+        redirect: false, // Ne pas rediriger automatiquement pour pouvoir gérer les erreurs
         email,
         password,
+        callbackUrl,
       });
       
       if (result?.error) {
@@ -67,8 +95,9 @@ function LoginForm() {
       console.log("Connexion réussie!");
       setSuccessMessage("Connexion réussie! Redirection en cours...");
       
-      // Rediriger vers le tableau de bord
-      window.location.href = '/dashboard';
+      // Utiliser le router Next.js pour la redirection
+      router.push(callbackUrl);
+      router.refresh();
       
     } catch (error: any) {
       console.error("Erreur complète:", error);

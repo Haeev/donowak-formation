@@ -2,32 +2,20 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Met à jour la session Supabase et gère les redirections basées sur l'authentification
+ * Met à jour la session Supabase sans gérer les redirections
  * Cette fonction est appelée par le middleware principal de l'application
+ * et se contente de mettre à jour les cookies de session
  * 
  * @param request - La requête entrante
- * @returns La réponse modifiée avec les cookies de session mis à jour et les redirections si nécessaire
+ * @returns La réponse modifiée avec les cookies de session mis à jour
  */
 export async function updateSession(request: NextRequest) {
   // Obtenir l'URL actuelle
   const url = new URL(request.url);
   const path = url.pathname;
   
-  console.log(`Middleware - URL: ${path}`);
-  
-  // Vérifier si la requête provient déjà d'une redirection pour éviter les boucles
-  const redirectCount = request.headers.get('x-redirect-count') || '0';
-  const redirectCountNum = parseInt(redirectCount, 10);
-  
-  // Si nous avons déjà redirigé plusieurs fois, arrêter pour éviter une boucle
-  if (redirectCountNum > 2) {
-    console.log(`Middleware - Trop de redirections (${redirectCountNum}), arrêt pour éviter une boucle`);
-    return NextResponse.next({
-      request: {
-        headers: request.headers,
-      },
-    });
-  }
+  // Log minimal pour le débogage
+  console.log(`Middleware - Mise à jour des cookies pour: ${path}`);
   
   // Créer une réponse initiale
   let response = NextResponse.next({
@@ -88,59 +76,8 @@ export async function updateSession(request: NextRequest) {
   );
 
   try {
-    // Vérifier si l'utilisateur est authentifié
-    const { data: { session } } = await supabase.auth.getSession();
-    console.log(`Middleware - Session: ${session ? 'Trouvée' : 'Non trouvée'}`);
-
-    // Routes protégées qui nécessitent une authentification
-    const protectedRoutes = ['/dashboard', '/admin'];
-    
-    // Routes d'authentification (login, register) qui ne devraient pas être accessibles si déjà connecté
-    const authRoutes = ['/auth/login', '/auth/register'];
-    
-    // Routes à ignorer (gérées par NextAuth ou autres systèmes)
-    const ignoredRoutes = ['/api/auth', '/auth/callback', '/auth/confirm', '/auth/email-confirmed'];
-    
-    // Vérifier si la route actuelle doit être ignorée
-    const shouldIgnoreRoute = ignoredRoutes.some(route => path.startsWith(route));
-    
-    // Si la route doit être ignorée, ne pas appliquer de redirection
-    if (shouldIgnoreRoute) {
-      console.log(`Middleware - Route ignorée: ${path}`);
-      return response;
-    }
-    
-    // Vérifier si l'utilisateur tente d'accéder à une route protégée
-    const isProtectedRoute = protectedRoutes.some(route => path.startsWith(route));
-    
-    // Vérifier si l'utilisateur tente d'accéder à une route d'authentification
-    const isAuthRoute = authRoutes.some(route => path.startsWith(route));
-
-    console.log(`Middleware - Route protégée: ${isProtectedRoute}, Route d'auth: ${isAuthRoute}`);
-
-    // Rediriger les utilisateurs non authentifiés qui tentent d'accéder à une route protégée
-    if (!session && isProtectedRoute) {
-      console.log('Middleware - Redirection vers la page de connexion');
-      const redirectUrl = new URL('/auth/login', request.url);
-      const redirectResponse = NextResponse.redirect(redirectUrl);
-      
-      // Incrémenter le compteur de redirections
-      redirectResponse.headers.set('x-redirect-count', (redirectCountNum + 1).toString());
-      
-      return redirectResponse;
-    }
-
-    // Rediriger les utilisateurs authentifiés qui tentent d'accéder aux pages d'authentification
-    if (session && isAuthRoute) {
-      console.log('Middleware - Redirection vers le tableau de bord');
-      const redirectUrl = new URL('/dashboard', request.url);
-      const redirectResponse = NextResponse.redirect(redirectUrl);
-      
-      // Incrémenter le compteur de redirections
-      redirectResponse.headers.set('x-redirect-count', (redirectCountNum + 1).toString());
-      
-      return redirectResponse;
-    }
+    // Mettre à jour la session sans effectuer de redirection
+    await supabase.auth.getSession();
   } catch (error) {
     console.error('Middleware - Erreur:', error);
   }

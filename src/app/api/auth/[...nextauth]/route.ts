@@ -18,6 +18,7 @@ interface ExtendedUser extends User {
 /**
  * Configuration de NextAuth.js pour l'authentification
  * Utilise Supabase comme backend d'authentification via le provider Credentials
+ * Gère également les redirections en fonction de l'état d'authentification
  */
 const handler = NextAuth({
   providers: [
@@ -103,6 +104,21 @@ const handler = NextAuth({
         session.supabaseRefreshToken = token.supabaseRefreshToken;
       }
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      // Gérer les redirections après authentification
+      console.log("NextAuth - Redirection:", { url, baseUrl });
+      
+      // Si l'URL est relative, la préfixer avec l'URL de base
+      if (url.startsWith('/')) {
+        return `${baseUrl}${url}`;
+      }
+      // Si l'URL est déjà absolue mais sur le même site, la retourner telle quelle
+      else if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      // Sinon, rediriger vers la page d'accueil
+      return baseUrl;
     }
   },
   pages: {
