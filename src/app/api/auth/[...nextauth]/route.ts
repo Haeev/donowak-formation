@@ -1,6 +1,19 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { createClient } from '@/lib/supabase/client';
+import { User } from 'next-auth';
+
+/**
+ * Type étendu pour l'utilisateur NextAuth avec les propriétés Supabase
+ */
+interface ExtendedUser extends User {
+  id: string;
+  email: string;
+  name?: string;
+  role?: string;
+  supabaseAccessToken?: string;
+  supabaseRefreshToken?: string;
+}
 
 /**
  * Configuration de NextAuth.js pour l'authentification
@@ -14,7 +27,7 @@ const handler = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Mot de passe", type: "password" }
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           console.log("Informations d'identification manquantes");
           return null;
@@ -49,14 +62,16 @@ const handler = NextAuth({
             .single();
           
           // Retourner les données utilisateur pour la session
-          return {
+          const user: ExtendedUser = {
             id: data.user.id,
-            email: data.user.email,
-            name: data.user.user_metadata?.full_name || data.user.email,
+            email: data.user.email || '',  // S'assurer que l'email n'est jamais undefined
+            name: data.user.user_metadata?.full_name || data.user.email || '',
             role: profileData?.role || 'user',
             supabaseAccessToken: data.session?.access_token,
             supabaseRefreshToken: data.session?.refresh_token
           };
+          
+          return user;
         } catch (error) {
           console.error("Erreur lors de l'authentification:", error);
           return null;
