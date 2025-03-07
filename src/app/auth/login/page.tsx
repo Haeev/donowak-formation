@@ -11,12 +11,13 @@ import { Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   // Vérifier si l'utilisateur est déjà connecté
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   
   useEffect(() => {
     // Si l'utilisateur est déjà connecté, rediriger vers le tableau de bord
     if (status === 'authenticated') {
+      console.log("Utilisateur déjà connecté, redirection vers le tableau de bord");
       router.push('/dashboard');
     }
   }, [status, router]);
@@ -75,7 +76,7 @@ function LoginForm() {
     try {
       console.log("Tentative de connexion avec:", email);
       
-      // Utiliser NextAuth.js pour la connexion avec redirection automatique
+      // Utiliser NextAuth.js pour la connexion
       const result = await signIn('credentials', {
         redirect: false, // Ne pas rediriger automatiquement pour pouvoir gérer les erreurs
         email,
@@ -83,21 +84,31 @@ function LoginForm() {
         callbackUrl,
       });
       
+      console.log("Résultat de la connexion:", result);
+      
       if (result?.error) {
         console.error("Erreur de connexion:", result.error);
-        throw new Error(result.error);
+        
+        // Traduire les messages d'erreur courants
+        if (result.error === "CredentialsSignin") {
+          throw new Error("Email ou mot de passe incorrect");
+        } else {
+          throw new Error(result.error);
+        }
       }
       
       if (!result?.ok) {
-        throw new Error("La connexion a échoué");
+        throw new Error("La connexion a échoué pour une raison inconnue");
       }
 
       console.log("Connexion réussie!");
       setSuccessMessage("Connexion réussie! Redirection en cours...");
       
-      // Utiliser le router Next.js pour la redirection
-      router.push(callbackUrl);
-      router.refresh();
+      // Attendre un court instant avant de rediriger
+      setTimeout(() => {
+        // Utiliser window.location pour une redirection complète
+        window.location.href = callbackUrl;
+      }, 1000);
       
     } catch (error: any) {
       console.error("Erreur complète:", error);

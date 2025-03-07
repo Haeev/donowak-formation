@@ -38,6 +38,12 @@ const handler = NextAuth({
           console.log("Tentative de connexion avec Supabase pour:", credentials.email);
           const supabase = createClient();
           
+          // Vérifier si les variables d'environnement Supabase sont définies
+          if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+            console.error("Variables d'environnement Supabase manquantes");
+            throw new Error("Configuration du serveur incorrecte");
+          }
+          
           const { data, error } = await supabase.auth.signInWithPassword({
             email: credentials.email,
             password: credentials.password,
@@ -45,7 +51,7 @@ const handler = NextAuth({
           
           if (error) {
             console.error("Erreur d'authentification Supabase:", error.message);
-            return null;
+            throw new Error(error.message);
           }
           
           if (!data.user) {
@@ -56,11 +62,15 @@ const handler = NextAuth({
           console.log("Authentification réussie pour:", data.user.email);
           
           // Récupérer les informations supplémentaires du profil
-          const { data: profileData } = await supabase
+          const { data: profileData, error: profileError } = await supabase
             .from('profiles')
             .select('role')
             .eq('id', data.user.id)
             .single();
+            
+          if (profileError) {
+            console.warn("Erreur lors de la récupération du profil:", profileError.message);
+          }
           
           // Retourner les données utilisateur pour la session
           const user: ExtendedUser = {
@@ -73,9 +83,10 @@ const handler = NextAuth({
           };
           
           return user;
-        } catch (error) {
-          console.error("Erreur lors de l'authentification:", error);
-          return null;
+        } catch (error: any) {
+          console.error("Erreur lors de l'authentification:", error.message);
+          // Ne pas retourner null ici, mais laisser l'erreur se propager
+          throw new Error(error.message || "Erreur d'authentification");
         }
       }
     })
@@ -84,6 +95,7 @@ const handler = NextAuth({
     async jwt({ token, user }) {
       // Ajouter les informations utilisateur au token JWT
       if (user) {
+        console.log("JWT callback - Utilisateur trouvé:", user.email);
         token.id = user.id;
         token.email = user.email;
         token.name = user.name;
@@ -96,6 +108,7 @@ const handler = NextAuth({
     async session({ session, token }) {
       // Ajouter les informations du token à la session
       if (token && session.user) {
+        console.log("Session callback - Token trouvé pour:", token.email);
         session.user.id = token.id;
         session.user.email = token.email;
         session.user.name = token.name;
@@ -111,13 +124,17 @@ const handler = NextAuth({
       
       // Si l'URL est relative, la préfixer avec l'URL de base
       if (url.startsWith('/')) {
-        return `${baseUrl}${url}`;
+        const fullUrl = `${baseUrl}${url}`;
+        console.log("Redirection vers URL relative:", fullUrl);
+        return fullUrl;
       }
       // Si l'URL est déjà absolue mais sur le même site, la retourner telle quelle
       else if (url.startsWith(baseUrl)) {
+        console.log("Redirection vers URL absolue sur le même site:", url);
         return url;
       }
       // Sinon, rediriger vers la page d'accueil
+      console.log("Redirection vers l'URL de base:", baseUrl);
       return baseUrl;
     }
   },
@@ -130,7 +147,7 @@ const handler = NextAuth({
     strategy: 'jwt',
     maxAge: 30 * 24 * 60 * 60, // 30 jours
   },
-  debug: process.env.NODE_ENV === 'development',
+  debug: true, // Activer le mode debug pour voir les logs détaillés
 });
 
 export { handler as GET, handler as POST }; 

@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr';
+import { Database } from '@/types/database.types';
 
 /**
  * Crée et configure un client Supabase pour le navigateur
@@ -7,8 +8,18 @@ import { createBrowserClient } from '@supabase/ssr';
  * @returns Instance du client Supabase configurée pour le navigateur
  */
 export function createClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error('Variables d\'environnement Supabase manquantes:', { 
+      url: supabaseUrl ? 'définie' : 'manquante', 
+      key: supabaseAnonKey ? 'définie' : 'manquante' 
+    });
+  }
+  
+  return createBrowserClient<Database>(
+    supabaseUrl!,
+    supabaseAnonKey!
   );
 } 
