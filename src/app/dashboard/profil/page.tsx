@@ -12,6 +12,7 @@ import { Loader2, User, Upload, X, Check, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import DeleteAccountDialog from '@/components/dashboard/DeleteAccountDialog';
 
 interface UserProfile {
   id: string;
@@ -27,6 +28,13 @@ interface UserProfile {
   job_title: string | null;
 }
 
+/**
+ * Page de profil utilisateur
+ * Permet à l'utilisateur de visualiser et modifier ses informations personnelles
+ * Inclut la gestion de l'avatar, des informations de contact et la suppression de compte
+ * 
+ * @returns Composant React pour la page de profil
+ */
 export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -534,6 +542,9 @@ export default function ProfilePage() {
                     Vous êtes inscrit depuis le {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                   </p>
                 </div>
+                
+                {/* Intégration du composant de suppression de compte */}
+                <DeleteAccountDialog />
               </CardContent>
             </Card>
           </TabsContent>

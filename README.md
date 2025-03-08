@@ -1,53 +1,144 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Donowak Formation
 
-## Getting Started
+Plateforme de formations professionnelles certifiantes développée avec Next.js, Supabase et TailwindCSS.
 
-First, run the development server:
+## 🚀 Fonctionnalités
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Authentification** : Inscription, connexion et gestion de compte avec Supabase Auth
+- **Catalogue de formations** : Parcourir et s'inscrire à des formations
+- **Tableau de bord** : Suivi des formations, progression et certificats
+- **Profil utilisateur** : Gestion des informations personnelles et suppression de compte
+- **Interface responsive** : Design adapté à tous les appareils
+
+## 📋 Prérequis
+
+- Node.js 18.x ou supérieur
+- npm ou yarn
+- Compte Supabase (gratuit pour commencer)
+- Compte Vercel (optionnel, pour le déploiement)
+
+## 🛠️ Installation
+
+1. Cloner le dépôt :
+   ```bash
+   git clone https://github.com/votre-utilisateur/donowak-formation.git
+   cd donowak-formation
+   ```
+
+2. Installer les dépendances :
+   ```bash
+   npm install
+   # ou
+   yarn install
+   ```
+
+3. Configurer les variables d'environnement :
+   - Copier le fichier `.env.example` vers `.env.local`
+   - Remplir les variables avec vos propres valeurs Supabase
+
+4. Lancer le serveur de développement :
+   ```bash
+   npm run dev
+   # ou
+   yarn dev
+   ```
+
+5. Ouvrir [http://localhost:3000](http://localhost:3000) dans votre navigateur
+
+## ⚙️ Configuration de Supabase
+
+### Base de données
+
+1. Créer un nouveau projet sur [Supabase](https://supabase.com)
+2. Exécuter les migrations SQL dans l'ordre :
+   - `src/migrations/create_profile_trigger.sql` : Crée la table des profils et le déclencheur
+   - `src/migrations/delete_user_function.sql` : Ajoute la fonction de suppression de compte
+
+### Authentification
+
+1. Dans le tableau de bord Supabase, aller dans **Authentication > Settings**
+2. Configurer les fournisseurs d'authentification (Email, Google, etc.)
+3. Personnaliser les modèles d'emails (confirmation, réinitialisation de mot de passe)
+
+### Stockage
+
+1. Créer un bucket `avatars` pour les photos de profil
+2. Configurer les règles de sécurité (RLS) pour le bucket
+
+## 🔑 Variables d'environnement
+
+```
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://votre-projet.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=votre-clé-anon
+SUPABASE_SERVICE_ROLE_KEY=votre-clé-service
+
+# URL de l'application
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚢 Déploiement
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Vercel
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Connecter votre dépôt GitHub à Vercel
+2. Configurer les variables d'environnement dans le tableau de bord Vercel
+3. Déployer l'application
 
-## Learn More
+### Supabase Edge Functions
 
-To learn more about Next.js, take a look at the following resources:
+Pour déployer la fonction Edge de suppression de compte :
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Installer la CLI Supabase :
+   ```bash
+   npm install -g supabase
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+2. Se connecter à Supabase :
+   ```bash
+   supabase login
+   ```
 
-## Deploy on Vercel
+3. Lier votre projet :
+   ```bash
+   supabase link --project-ref votre-reference-projet
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. Déployer la fonction :
+   ```bash
+   supabase functions deploy delete-user
+   ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## Déploiement
-
-Ce projet utilise Vercel pour le déploiement. Pour déployer l'application, utilisez les scripts fournis :
+## 🧪 Tests
 
 ```bash
-# Pour déployer avec un message de commit personnalisé
-./vercel-cli.sh deploy "Votre message de commit"
-
-# Pour vérifier l'état du déploiement
-./vercel-cli.sh status
-
-# Pour afficher les logs du déploiement
-./vercel-cli.sh logs
+# Lancer les tests unitaires
+npm run test
+# ou
+yarn test
 ```
 
-Pour plus d'informations, consultez le fichier [VERCEL_DEPLOYMENT.md](./VERCEL_DEPLOYMENT.md).
+## 📁 Structure du projet
+
+```
+donowak-formation/
+├── public/              # Fichiers statiques
+├── src/
+│   ├── app/             # Pages et routes Next.js
+│   ├── components/      # Composants React
+│   ├── lib/             # Bibliothèques et utilitaires
+│   ├── migrations/      # Scripts SQL pour Supabase
+│   └── types/           # Types TypeScript
+├── supabase/
+│   └── functions/       # Fonctions Edge Supabase
+├── .env.example         # Exemple de variables d'environnement
+└── README.md            # Documentation
+```
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une issue ou une pull request.
+
+## 📄 Licence
+
+Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.

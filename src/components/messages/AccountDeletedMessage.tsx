@@ -2,7 +2,15 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { CheckCircle } from 'lucide-react';
 
+/**
+ * Composant qui affiche un message de confirmation après la suppression d'un compte
+ * Ce composant vérifie la présence du paramètre 'message=account_deleted' dans l'URL
+ * et affiche un message de confirmation si présent
+ * 
+ * @returns Composant React pour le message de suppression de compte
+ */
 export default function AccountDeletedMessage() {
   const searchParams = useSearchParams();
   const [showMessage, setShowMessage] = useState(false);
@@ -28,8 +36,12 @@ export default function AccountDeletedMessage() {
   }
   
   return (
-    <div className="bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200 p-4 text-center">
-      Votre compte a été supprimé avec succès. Nous espérons vous revoir bientôt !
+    <div className="bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-200 p-4 rounded-md border border-green-200 dark:border-green-800 mb-6 flex items-center">
+      <CheckCircle className="h-5 w-5 mr-2 text-green-600 dark:text-green-400" />
+      <div>
+        <h3 className="font-medium">Compte supprimé avec succès</h3>
+        <p>Votre compte et toutes vos données ont été supprimés. Nous espérons vous revoir bientôt !</p>
+      </div>
     </div>
   );
 } 

@@ -17,7 +17,7 @@
 - [OK] Inscription via Supabase Auth
 - [OK] Connexion via Supabase Auth
 - [OK] Confirmation d'email
-- [OK] Suppression de compte
+- [  ] Suppression de compte
 - [  ] Dashboard personnel
 - [  ] Voir et modifier son profil (nom, prénom, bio, photo, etc.)
 - [  ] Accéder à la liste des formations disponibles
