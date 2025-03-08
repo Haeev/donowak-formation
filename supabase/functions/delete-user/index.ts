@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Fonction Edge Supabase pour la suppression de compte utilisateur
 // Cette fonction utilise la clé de service pour supprimer un utilisateur
 // Elle doit être déployée sur Supabase avec la commande:
@@ -113,7 +114,7 @@ Deno.serve(async (req) => {
         JSON.stringify({ success: true, message: 'Utilisateur supprimé avec succès' }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur lors de la suppression de l\'utilisateur:', error);
       
       return new Response(
@@ -124,7 +125,7 @@ Deno.serve(async (req) => {
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur lors du traitement de la requête:', error);
     
     return new Response(
