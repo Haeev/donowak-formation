@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,30 +14,31 @@ import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import DeleteAccountDialog from '@/components/dashboard/DeleteAccountDialog';
 
-interface UserProfile {
-  id: string;
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
-  phone: string | null;
-  bio: string | null;
-  created_at: string;
-  updated_at: string;
-  website: string | null;
-  location: string | null;
-  job_title: string | null;
-}
-
-/**
- * Page de profil utilisateur
- * Permet à l'utilisateur de visualiser et modifier ses informations personnelles
- * Inclut la gestion de l'avatar, des informations de contact et la suppression de compte
- * 
- * @returns Composant React pour la page de profil
- */
-export default function ProfilePage() {
+// Composant qui utilise useSearchParams pour extraire les paramètres d'URL
+// Il est enveloppé dans un Suspense pour éviter l'erreur de build
+function ProfileContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // Utilisation de window.location pour éviter l'utilisation de useSearchParams
+  const [activeTab, setActiveTab] = useState('profile');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
+  // Utiliser useEffect pour lire les paramètres d'URL au chargement de la page
+  useEffect(() => {
+    // Extraire le paramètre tab de l'URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    
+    if (tabParam === 'account' || tabParam === 'profile') {
+      setActiveTab(tabParam);
+    }
+    
+    // Vérifier si l'ancre #delete est présente
+    if (window.location.hash === '#delete') {
+      setIsDeleteDialogOpen(true);
+      setActiveTab('account');
+    }
+  }, []);
+
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,10 +54,6 @@ export default function ProfilePage() {
   });
   const [message, setMessage] = useState({ type: '', text: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // État pour contrôler l'ouverture de la boîte de dialogue de suppression de compte
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  // Onglet actif, par défaut "profile"
-  const [activeTab, setActiveTab] = useState('profile');
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -104,22 +101,6 @@ export default function ProfilePage() {
     
     fetchUserData();
   }, [router]);
-
-  // Vérifier si l'URL contient des paramètres pour l'onglet actif et l'ancre delete
-  useEffect(() => {
-    // Vérifier le paramètre tab
-    const tab = searchParams.get('tab');
-    if (tab === 'account' || tab === 'profile') {
-      setActiveTab(tab);
-    }
-    
-    // Vérifier si l'ancre #delete est présente pour ouvrir la boîte de dialogue
-    if (typeof window !== 'undefined' && window.location.hash === '#delete') {
-      setIsDeleteDialogOpen(true);
-      // Assurer que l'onglet account est actif
-      setActiveTab('account');
-    }
-  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -597,5 +578,42 @@ export default function ProfilePage() {
         </Tabs>
       </div>
     </div>
+  );
+}
+
+interface UserProfile {
+  id: string;
+  full_name: string | null;
+  email: string;
+  avatar_url: string | null;
+  phone: string | null;
+  bio: string | null;
+  created_at: string;
+  updated_at: string;
+  website: string | null;
+  location: string | null;
+  job_title: string | null;
+}
+
+/**
+ * Page de profil utilisateur
+ * Permet à l'utilisateur de visualiser et modifier ses informations personnelles
+ * Inclut la gestion de l'avatar, des informations de contact et la suppression de compte
+ * 
+ * @returns Composant React pour la page de profil
+ */
+export default function ProfilePage() {
+  // Envelopper ProfileContent dans un Suspense pour éviter les erreurs de client/serveur
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-lg">Chargement de votre profil...</p>
+        </div>
+      </div>
+    }>
+      <ProfileContent />
+    </Suspense>
   );
 } 
