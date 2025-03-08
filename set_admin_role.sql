@@ -22,9 +22,9 @@ BEGIN
     
     -- Vérifier que l'utilisateur a un profil
     IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = admin_id) THEN
-        -- Créer un profil si nécessaire
-        INSERT INTO profiles (id, created_at, updated_at, username, full_name)
-        VALUES (admin_id, NOW(), NOW(), admin_email, split_part(admin_email, '@', 1));
+        -- Créer un profil avec seulement l'id (sans username et full_name qui n'existent pas)
+        INSERT INTO profiles (id)
+        VALUES (admin_id);
         
         RAISE NOTICE 'Profil créé pour %', admin_email;
     END IF;
