@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, User, Upload, X, Check, AlertCircle } from 'lucide-react';
+import { Loader2, User, Upload, X, Check, AlertCircle, Shield, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -37,6 +37,7 @@ interface UserProfile {
  */
 export default function ProfilePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,6 +53,10 @@ export default function ProfilePage() {
   });
   const [message, setMessage] = useState({ type: '', text: '' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // État pour contrôler l'ouverture de la boîte de dialogue de suppression de compte
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  // Onglet actif, par défaut "profile"
+  const [activeTab, setActiveTab] = useState('profile');
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -100,12 +105,21 @@ export default function ProfilePage() {
     fetchUserData();
   }, [router]);
 
-  // Vérifier si l'URL contient l'ancre #delete pour ouvrir automatiquement la boîte de dialogue
+  // Vérifier si l'URL contient des paramètres pour l'onglet actif et l'ancre delete
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash === '#delete') {
-      // setIsDeleteDialogOpen(true);
+    // Vérifier le paramètre tab
+    const tab = searchParams.get('tab');
+    if (tab === 'account' || tab === 'profile') {
+      setActiveTab(tab);
     }
-  }, []);
+    
+    // Vérifier si l'ancre #delete est présente pour ouvrir la boîte de dialogue
+    if (typeof window !== 'undefined' && window.location.hash === '#delete') {
+      setIsDeleteDialogOpen(true);
+      // Assurer que l'onglet account est actif
+      setActiveTab('account');
+    }
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -314,7 +328,7 @@ export default function ProfilePage() {
           </Alert>
         )}
 
-        <Tabs defaultValue="profile" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="profile">Profil</TabsTrigger>
             <TabsTrigger value="account">Compte</TabsTrigger>
@@ -543,8 +557,40 @@ export default function ProfilePage() {
                   </p>
                 </div>
                 
-                {/* Intégration du composant de suppression de compte */}
-                <DeleteAccountDialog />
+                {/* Intégration du composant de suppression de compte avec contrôle d'état */}
+                <div className="mt-8 border-t pt-8">
+                  <div className="flex items-center mb-2">
+                    <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mr-2" />
+                    <h3 className="text-lg font-medium text-red-600 dark:text-red-400">
+                      Zone de danger
+                    </h3>
+                  </div>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    La suppression de votre compte est irréversible. Toutes vos données seront définitivement supprimées.
+                  </p>
+                  
+                  <Alert variant="destructive" className="mb-6 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    <AlertDescription className="text-red-800 dark:text-red-200">
+                      Cette action est permanente et ne peut pas être annulée. Toutes vos formations, certificats et données personnelles seront supprimés.
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <Button
+                    variant="destructive"
+                    onClick={() => setIsDeleteDialogOpen(true)}
+                    className="flex items-center"
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Supprimer définitivement mon compte
+                  </Button>
+                  
+                  {/* Composant de dialogue avec état contrôlé par la page */}
+                  <DeleteAccountDialog
+                    open={isDeleteDialogOpen}
+                    onOpenChange={setIsDeleteDialogOpen}
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

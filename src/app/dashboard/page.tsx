@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Database } from '@/types/database.types';
-import { Loader2, BookOpen, Award, Clock, User, ChevronRight, Calendar } from 'lucide-react';
+import { Loader2, BookOpen, Award, Clock, User, ChevronRight, Calendar, Shield, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 
@@ -315,11 +315,23 @@ export default function DashboardPage() {
                   Membre depuis {new Date(userProfile.created_at).toLocaleDateString()}
                 </p>
               </div>
-              <div className="ml-auto">
+              <div className="ml-auto flex flex-col gap-2 sm:flex-row">
                 <Button asChild variant="outline">
                   <Link href="/dashboard/profil" className="flex items-center">
+                    <User className="mr-2 h-4 w-4" />
                     Modifier mon profil
-                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/dashboard/profil?tab=account" className="flex items-center">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Paramètres du compte
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                  <Link href="/dashboard/profil?tab=account#delete" className="flex items-center">
+                    <Shield className="mr-2 h-4 w-4" />
+                    Supprimer mon compte
                   </Link>
                 </Button>
               </div>
@@ -348,41 +360,55 @@ export default function DashboardPage() {
       {/* Section de profil utilisateur */}
       {userProfile && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-          <div className="flex items-center">
-            <div className="relative h-16 w-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mr-4">
-              {userProfile.avatar_url ? (
-                <Image 
-                  src={userProfile.avatar_url} 
-                  alt={userProfile.full_name || 'Avatar'} 
-                  fill 
-                  className="object-cover"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full w-full">
-                  <User className="h-8 w-8 text-gray-400" />
-                </div>
-              )}
+          <div className="flex flex-col md:flex-row md:items-center">
+            <div className="flex items-center mb-4 md:mb-0">
+              <div className="relative h-16 w-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mr-4">
+                {userProfile.avatar_url ? (
+                  <Image 
+                    src={userProfile.avatar_url} 
+                    alt={userProfile.full_name || 'Avatar'} 
+                    fill 
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full w-full">
+                    <User className="h-8 w-8 text-gray-400" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold">
+                  {userProfile.full_name || 'Utilisateur'}
+                </h2>
+                <p className="text-gray-600 dark:text-gray-400">{userProfile.email}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                  Membre depuis {new Date(userProfile.created_at).toLocaleDateString()}
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-semibold">
-                {userProfile.full_name || 'Utilisateur'}
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400">{userProfile.email}</p>
-              <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                Membre depuis {new Date(userProfile.created_at).toLocaleDateString()}
-              </p>
-            </div>
-            <div className="ml-auto flex space-x-2">
+            <div className="md:ml-auto flex flex-col sm:flex-row gap-2">
               <Button asChild variant="outline">
                 <Link href="/dashboard/profil" className="flex items-center">
+                  <User className="mr-2 h-4 w-4" />
                   Modifier mon profil
-                  <ChevronRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild>
+              <Button asChild variant="outline">
                 <Link href="/dashboard/statistiques" className="flex items-center">
+                  <ChevronRight className="mr-2 h-4 w-4" />
                   Voir mes statistiques
-                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/dashboard/profil?tab=account" className="flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Paramètres du compte
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+                <Link href="/dashboard/profil?tab=account#delete" className="flex items-center">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Supprimer mon compte
                 </Link>
               </Button>
             </div>

@@ -15,19 +15,32 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 
+interface DeleteAccountDialogProps {
+  // Si fourni, contrôle l'état d'ouverture de la boîte de dialogue
+  open?: boolean;
+  // Si fourni, appelé lorsque l'état d'ouverture change
+  onOpenChange?: (open: boolean) => void;
+}
+
 /**
  * Composant de dialogue pour la suppression de compte
  * Affiche une boîte de dialogue avec une confirmation de suppression
  * Requiert que l'utilisateur tape "SUPPRIMER" pour confirmer
  * 
+ * @param props - Propriétés du composant
  * @returns Composant React pour la suppression de compte
  */
-export default function DeleteAccountDialog() {
+export default function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogProps) {
   const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  // N'utiliser l'état local que si les props ne sont pas fournies
+  const [isOpenInternal, setIsOpenInternal] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState('');
+  
+  // Utiliser les props si elles sont fournies, sinon utiliser l'état local
+  const isOpen = open !== undefined ? open : isOpenInternal;
+  const setIsOpen = onOpenChange || setIsOpenInternal;
   
   const CONFIRMATION_TEXT = 'SUPPRIMER';
   
@@ -69,6 +82,71 @@ export default function DeleteAccountDialog() {
     }
   };
   
+  // Si les props open et onOpenChange sont fournies, utiliser uniquement le contenu du dialogue
+  if (open !== undefined && onOpenChange) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-600 dark:text-red-400 flex items-center">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              Supprimer votre compte
+            </DialogTitle>
+            <DialogDescription>
+              Cette action est <strong>irréversible</strong>. Votre compte et toutes vos données seront définitivement supprimés.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-md border border-red-200 dark:border-red-800 my-4">
+            <p className="text-sm text-red-800 dark:text-red-200">
+              Pour confirmer, veuillez taper <strong>{CONFIRMATION_TEXT}</strong> ci-dessous.
+            </p>
+          </div>
+          
+          <Input
+            value={confirmText}
+            onChange={(e) => setConfirmText(e.target.value)}
+            placeholder={`Tapez "${CONFIRMATION_TEXT}" pour confirmer`}
+            className={error ? 'border-red-500' : ''}
+            disabled={isDeleting}
+          />
+          
+          {error && (
+            <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+              {error}
+            </p>
+          )}
+          
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              disabled={isDeleting}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAccount}
+              disabled={confirmText !== CONFIRMATION_TEXT || isDeleting}
+              className="ml-2"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Suppression...
+                </>
+              ) : (
+                'Supprimer définitivement'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+  
+  // Sinon, utiliser le composant complet avec le bouton de déclenchement
   return (
     <div className="mt-8 border-t pt-8">
       <h3 className="text-lg font-medium text-red-600 dark:text-red-400 mb-2">
@@ -78,7 +156,7 @@ export default function DeleteAccountDialog() {
         La suppression de votre compte est irréversible. Toutes vos données seront définitivement supprimées.
       </p>
       
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpenInternal} onOpenChange={setIsOpenInternal}>
         <DialogTrigger asChild>
           <Button variant="destructive">
             Supprimer mon compte
@@ -119,7 +197,7 @@ export default function DeleteAccountDialog() {
           <DialogFooter className="mt-4">
             <Button
               variant="outline"
-              onClick={() => setIsOpen(false)}
+              onClick={() => setIsOpenInternal(false)}
               disabled={isDeleting}
             >
               Annuler
