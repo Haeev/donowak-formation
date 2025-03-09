@@ -1,4 +1,4 @@
-On ne peux pas supprimer le compte, il faut la possibilité de supprimer le compte
+Le projet contient trop de fichier et de documents potentiellement inutiles comme toutes les requetes SQL créer en racine du fichier, fait un tour de tout le projet pour faire le ménage avant de continuer à developer.
 
 ---
 

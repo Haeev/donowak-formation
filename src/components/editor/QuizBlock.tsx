@@ -1,112 +1,118 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit2, Eye, Trash } from 'lucide-react';
+import { PlusCircle, Edit2, Eye, Trash, FileQuestion, Edit, EyeOff } from 'lucide-react';
 import QuizCreator, { Quiz } from './QuizCreator';
 import QuizRenderer from './QuizRenderer';
 
 interface QuizBlockProps {
-  initialQuiz?: Quiz;
-  onSave?: (quiz: Quiz) => void;
-  onDelete?: () => void;
-  readOnly?: boolean;
+  quiz: Quiz;
+  onEdit: (quiz: Quiz) => void;
+  onDelete: (quizId: string) => void;
 }
 
-const QuizBlock = ({
-  initialQuiz,
-  onSave,
-  onDelete,
-  readOnly = false,
-}: QuizBlockProps) => {
-  const [quiz, setQuiz] = useState<Quiz | undefined>(initialQuiz);
-  const [mode, setMode] = useState<'view' | 'edit' | 'create'>(
-    initialQuiz ? 'view' : 'create'
-  );
+/**
+ * Composant pour afficher et gérer un quiz dans l'éditeur de contenu
+ */
+const QuizBlock = ({ quiz, onEdit, onDelete }: QuizBlockProps) => {
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
 
-  const handleSave = (savedQuiz: Quiz) => {
-    setQuiz(savedQuiz);
-    setMode('view');
-    if (onSave) {
-      onSave(savedQuiz);
-    }
+  // Fonction pour basculer entre le mode d'édition et le mode de prévisualisation
+  const togglePreviewMode = () => {
+    setIsPreviewMode(!isPreviewMode);
   };
 
+  // Fonction pour gérer l'édition du quiz
+  const handleEdit = () => {
+    onEdit(quiz);
+  };
+
+  // Fonction pour gérer la suppression du quiz
   const handleDelete = () => {
-    if (onDelete) {
-      onDelete();
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce quiz ?')) {
+      onDelete(quiz.id);
     }
   };
-
-  if (readOnly && quiz) {
-    return <QuizRenderer quiz={quiz} />;
-  }
 
   return (
-    <Card className="w-full border-dashed">
-      <CardContent className="p-4">
-        {mode === 'create' && (
-          <QuizCreator
-            onSave={handleSave}
-            onCancel={() => {
-              if (quiz) {
-                setMode('view');
-              } else if (onDelete) {
-                onDelete();
-              }
-            }}
-          />
-        )}
-
-        {mode === 'edit' && quiz && (
-          <QuizCreator
-            initialQuiz={quiz}
-            onSave={handleSave}
-            onCancel={() => setMode('view')}
-          />
-        )}
-
-        {mode === 'view' && quiz && (
-          <div className="space-y-4">
-            <QuizRenderer quiz={quiz} />
-            
-            <div className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setMode('edit')}
-              >
-                <Edit2 className="h-4 w-4 mr-2" />
-                Modifier
-              </Button>
-              
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDelete}
-              >
-                <Trash className="h-4 w-4 mr-2" />
-                Supprimer
-              </Button>
-            </div>
+    <Card className="border-2 border-dashed border-primary/20 my-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-md font-medium flex items-center">
+          <FileQuestion className="h-5 w-5 text-primary mr-2" />
+          Quiz: {quiz.question || 'Sans titre'}
+        </CardTitle>
+        <div className="flex items-center space-x-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={togglePreviewMode}
+            title={isPreviewMode ? "Masquer la prévisualisation" : "Afficher la prévisualisation"}
+          >
+            {isPreviewMode ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleEdit}
+            title="Modifier le quiz"
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleDelete}
+            title="Supprimer le quiz"
+          >
+            <Trash className="h-4 w-4 text-destructive" />
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isPreviewMode ? (
+          <div className="bg-muted/30 rounded-md p-4">
+            <QuizRenderer
+              quiz={quiz}
+              showFeedback={true}
+              saveResults={false}
+            />
           </div>
-        )}
-
-        {!quiz && mode === 'view' && (
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <Button
-              variant="outline"
-              onClick={() => setMode('create')}
-            >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Ajouter un quiz
-            </Button>
+        ) : (
+          <div className="bg-muted/30 rounded-md p-4">
+            <h3 className="font-medium mb-2">Type: {getQuizTypeLabel(quiz.type)}</h3>
+            <p className="text-sm mb-2">{quiz.question}</p>
+            <div className="text-xs text-muted-foreground mb-2">
+              {quiz.options.length} option(s) • {quiz.points || 1} point(s)
+            </div>
+            {quiz.explanation && (
+              <div className="text-xs mt-2 border-t pt-2">
+                <span className="font-medium">Explication: </span>
+                {quiz.explanation}
+              </div>
+            )}
           </div>
         )}
       </CardContent>
     </Card>
   );
 };
+
+// Fonction utilitaire pour obtenir le libellé du type de quiz
+function getQuizTypeLabel(type: string): string {
+  switch (type) {
+    case 'multiple-choice':
+      return 'Choix multiple';
+    case 'single-choice':
+      return 'Choix unique';
+    case 'text':
+      return 'Réponse texte';
+    case 'true-false':
+      return 'Vrai/Faux';
+    default:
+      return type;
+  }
+}
 
 export default QuizBlock; 

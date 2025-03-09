@@ -1,5 +1,4 @@
-supprime le compte loic.nowakowski@gmail.com de la db, ensuite recréer la avec le role d'admin et un mot de passe admin123. assure toi que quand un administrateur se connecte il soit sur le dashboard administrateur.
-
+déploie et fait la suite comme tu as Prévue 
 ---
 
 Approach this request with the strategic mindset of a solution architect and senior engineer, ensuring a robust, scalable, and maintainable implementation, aligned with the HYBRID PROTOCOL FOR AI CODE ASSISTANCE:

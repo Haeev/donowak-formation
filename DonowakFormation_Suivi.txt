@@ -6,7 +6,7 @@
 - [OK] Backend : Next.js API Routes pour gérer les requêtes serveur
 - [OK] Base de données : Supabase (PostgreSQL) - Structure complète
 - [OK] Authentification : Supabase Auth (email/mot de passe)
-- [  ] Authentification : Gestion des rôles (utilisateur, administrateur)
+- [OK] Authentification : Gestion des rôles (utilisateur, administrateur)
 - [  ] Paiements : Stripe (paiements uniques, abonnements, formations gratuites)
 - [OK] Déploiement : Vercel (lié à GitHub)
 - [  ] Stockage des médias : Supabase Storage (vidéos, images)
@@ -27,7 +27,7 @@
 - [  ] Laisser un avis/commentaire sur une formation terminée
 
 ## FEATURES ADMINISTRATEURS
-- [  ] Dashboard Admin
+- [OK] Dashboard Admin
 - [  ] Gestion des utilisateurs (voir profils, suspendre, supprimer)
 - [  ] Création des formations
 - [  ] Modification des formations
