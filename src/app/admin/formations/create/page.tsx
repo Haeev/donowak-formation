@@ -108,27 +108,134 @@ export default function AdminCreateFormationPage() {
       
       const supabase = createClient();
       
+      // Vérifier si l'utilisateur est authentifié et a le rôle admin
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Vous devez être connecté pour créer une formation');
+      }
+      
+      // Vérifier le rôle de l'utilisateur
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+        
+      if (profileError) {
+        console.error('Erreur lors de la vérification du profil:', profileError);
+        throw new Error('Impossible de vérifier vos permissions');
+      }
+      
+      if (profileData?.role !== 'admin') {
+        throw new Error('Vous devez être administrateur pour créer une formation');
+      }
+      
       // Gérer l'upload de l'image si elle existe
       if (selectedImage) {
-        const fileExt = selectedImage.name.split('.').pop();
-        const fileName = `${uuidv4()}.${fileExt}`;
-        const filePath = `formations/${fileName}`;
-        
-        // Uploader l'image
-        const { error: uploadError, data } = await supabase.storage
-          .from('images')
-          .upload(filePath, selectedImage);
-        
-        if (uploadError) {
-          throw new Error('Erreur lors de l\'upload de l\'image');
+        try {
+          const fileExt = selectedImage.name.split('.').pop();
+          const fileName = `${uuidv4()}.${fileExt}`;
+          const filePath = `formations/${fileName}`;
+          
+          // Vérifier si le bucket existe
+          const { data: buckets, error: bucketsError } = await supabase.storage.listBuckets();
+          
+          if (bucketsError) {
+            console.error('Erreur lors de la vérification des buckets:', bucketsError);
+            toast({
+              title: 'Avertissement',
+              description: 'Impossible de vérifier les buckets de stockage. La formation sera créée sans image.',
+              variant: 'destructive',
+            });
+          } else {
+            const imagesBucketExists = buckets.some(bucket => bucket.name === 'images');
+            
+            if (!imagesBucketExists) {
+              console.error('Le bucket "images" n\'existe pas dans Supabase Storage');
+              
+              // Tentative de création du bucket
+              try {
+                const { error: createBucketError } = await supabase.storage.createBucket('images', {
+                  public: true,
+                  fileSizeLimit: 5242880, // 5MB
+                });
+                
+                if (createBucketError) {
+                  console.error('Erreur lors de la création du bucket:', createBucketError);
+                  toast({
+                    title: 'Avertissement',
+                    description: 'Impossible de créer le bucket de stockage. La formation sera créée sans image.',
+                    variant: 'destructive',
+                  });
+                } else {
+                  // Bucket créé avec succès, on peut continuer avec l'upload
+                  const { error: uploadError, data } = await supabase.storage
+                    .from('images')
+                    .upload(filePath, selectedImage);
+                  
+                  if (uploadError) {
+                    console.error('Erreur lors de l\'upload de l\'image:', uploadError);
+                    toast({
+                      title: 'Avertissement',
+                      description: `Impossible d'uploader l'image: ${uploadError.message}. La formation sera créée sans image.`,
+                      variant: 'destructive',
+                    });
+                  } else {
+                    // Récupérer l'URL publique de l'image
+                    const { data: { publicUrl } } = supabase.storage
+                      .from('images')
+                      .getPublicUrl(filePath);
+                    
+                    values.image_url = publicUrl;
+                    toast({
+                      title: 'Succès',
+                      description: 'Image uploadée avec succès.',
+                    });
+                  }
+                }
+              } catch (createError: any) {
+                console.error('Erreur lors de la création du bucket:', createError);
+                toast({
+                  title: 'Avertissement',
+                  description: `Impossible de créer le bucket de stockage: ${createError.message}. La formation sera créée sans image.`,
+                  variant: 'destructive',
+                });
+              }
+            } else {
+              // Uploader l'image
+              const { error: uploadError, data } = await supabase.storage
+                .from('images')
+                .upload(filePath, selectedImage);
+              
+              if (uploadError) {
+                console.error('Erreur lors de l\'upload de l\'image:', uploadError);
+                toast({
+                  title: 'Avertissement',
+                  description: `Impossible d'uploader l'image: ${uploadError.message}. La formation sera créée sans image.`,
+                  variant: 'destructive',
+                });
+              } else {
+                // Récupérer l'URL publique de l'image
+                const { data: { publicUrl } } = supabase.storage
+                  .from('images')
+                  .getPublicUrl(filePath);
+                
+                values.image_url = publicUrl;
+                toast({
+                  title: 'Succès',
+                  description: 'Image uploadée avec succès.',
+                });
+              }
+            }
+          }
+        } catch (uploadError: any) {
+          console.error('Erreur lors du processus d\'upload:', uploadError);
+          toast({
+            title: 'Avertissement',
+            description: `Problème avec l'upload d'image: ${uploadError.message}. La formation sera créée sans image.`,
+            variant: 'destructive',
+          });
         }
-        
-        // Récupérer l'URL publique de l'image
-        const { data: { publicUrl } } = supabase.storage
-          .from('images')
-          .getPublicUrl(filePath);
-        
-        values.image_url = publicUrl;
       }
       
       // Créer la formation dans la base de données
@@ -146,7 +253,12 @@ export default function AdminCreateFormationPage() {
         .select();
       
       if (error) {
-        throw error;
+        console.error('Erreur détaillée de Supabase:', error);
+        throw new Error(`Erreur lors de la création: ${error.message} (Code: ${error.code})`);
+      }
+      
+      if (!data || data.length === 0) {
+        throw new Error('Aucune donnée retournée après la création');
       }
       
       toast({
@@ -156,11 +268,12 @@ export default function AdminCreateFormationPage() {
       
       // Rediriger vers la liste des formations ou l'édition de la formation créée
       router.push(`/admin/formations/edit/${data[0].id}`);
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error('Erreur lors de la création de la formation:', error);
       toast({
         title: 'Erreur',
-        description: 'Une erreur est survenue lors de la création de la formation.',
+        description: error.message || 'Une erreur est survenue lors de la création de la formation.',
         variant: 'destructive',
       });
     } finally {
@@ -191,7 +304,7 @@ export default function AdminCreateFormationPage() {
           </CardHeader>
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <form id="create-formation-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                   control={form.control}
                   name="title"
@@ -275,7 +388,11 @@ export default function AdminCreateFormationPage() {
                 />
                 
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button 
+                    form="create-formation-form"
+                    type="submit" 
+                    disabled={isSubmitting}
+                  >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Créer la formation
                   </Button>
