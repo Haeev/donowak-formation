@@ -3,10 +3,10 @@ import { createServerClient } from '@supabase/ssr';
 
 /**
  * Middleware principal de l'application
- * Met à jour uniquement les cookies de session sans gérer les redirections
+ * Gère les cookies de session et les redirections conditionnelles
  * 
  * @param request - La requête entrante
- * @returns La réponse modifiée avec les cookies de session mis à jour
+ * @returns La réponse modifiée avec les cookies de session mis à jour et les redirections appropriées
  */
 export async function middleware(request: NextRequest) {
   // Obtenir l'URL actuelle
@@ -59,8 +59,50 @@ export async function middleware(request: NextRequest) {
   );
 
   try {
-    // Mettre à jour la session sans effectuer de redirection
-    await supabase.auth.getSession();
+    // Récupérer la session utilisateur
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // Si l'utilisateur est connecté et que nous sommes sur des chemins spécifiques
+    if (session) {
+      // Vérifier les redirections conditionnelles pour les administrateurs
+      const dashboardPaths = ['/dashboard', '/dashboard/'];
+      const isOnDashboardPath = dashboardPaths.some(p => path === p) || path.startsWith('/dashboard/');
+      
+      // Uniquement pour les chemins du dashboard standard ou la racine (/)
+      if (isOnDashboardPath || path === '/') {
+        // Vérifier si l'utilisateur est administrateur
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+          
+        // Si l'utilisateur est administrateur, rediriger vers le dashboard admin
+        if (profile && profile.role === 'admin') {
+          // Ne rediriger que si l'utilisateur n'est pas déjà sur un chemin admin
+          if (!path.startsWith('/admin')) {
+            console.log(`[Middleware] Redirection admin: ${path} → /admin`);
+            return NextResponse.redirect(new URL('/admin', request.url));
+          }
+        }
+      }
+      
+      // Si l'utilisateur n'est pas administrateur mais tente d'accéder à /admin
+      if (path.startsWith('/admin')) {
+        // Vérifier si l'utilisateur est administrateur
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+          
+        // Si l'utilisateur n'est pas administrateur, rediriger vers le dashboard standard
+        if (!profile || profile.role !== 'admin') {
+          console.log(`[Middleware] Redirection utilisateur standard: ${path} → /dashboard`);
+          return NextResponse.redirect(new URL('/dashboard', request.url));
+        }
+      }
+    }
   } catch (error) {
     console.error('Middleware - Erreur:', error);
   }

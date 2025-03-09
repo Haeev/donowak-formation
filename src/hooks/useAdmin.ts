@@ -56,14 +56,22 @@ export default function useAdmin(
         
         // Gestion de la redirection en fonction du rôle et du chemin actuel
         if (userIsAdmin) {
-          // Si on est sur la page dashboard et l'utilisateur est admin, rediriger vers le dashboard admin
-          if (pathname === '/dashboard' || pathname === '/') {
+          // Pour les administrateurs, rediriger vers /admin s'ils sont sur l'un des chemins suivants :
+          // - page d'accueil ('/')
+          // - dashboard standard ('/dashboard' ou sous-pages)
+          const shouldRedirectAdmin = 
+            pathname === '/' || 
+            pathname === '/dashboard' || 
+            (pathname && pathname.startsWith('/dashboard/'));
+            
+          if (shouldRedirectAdmin && !pathname?.startsWith('/admin')) {
+            console.log(`Redirection administrateur: ${pathname} → ${adminRedirectUrl}`);
             router.push(adminRedirectUrl);
           }
-          // Si on est déjà sur une page admin, ne rien faire
         } else {
           // Si on tente d'accéder à une page admin mais qu'on n'est pas admin, rediriger
           if (pathname?.startsWith('/admin')) {
+            console.log(`Redirection utilisateur standard: ${pathname} → ${redirectUrl}`);
             router.push(redirectUrl);
           }
         }
