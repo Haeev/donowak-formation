@@ -1,4 +1,5 @@
-déploie et fait la suite comme tu as Prévue 
+La création fonctionne, maintenant je veux que tu developpe tout l'outils pour créer les chapitres avec tout ce qu'il faut (texte, images, son, vidéo, quiz, exercices intéractif, etc...)
+
 ---
 
 Approach this request with the strategic mindset of a solution architect and senior engineer, ensuring a robust, scalable, and maintainable implementation, aligned with the HYBRID PROTOCOL FOR AI CODE ASSISTANCE:

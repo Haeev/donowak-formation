@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
 import { Database } from '@/types/database.types';
+import { NextAuthOptions } from 'next-auth';
+import { createClient as createSupabaseClient } from '@/utils/supabase/server';
 
 /**
  * Crée un client Supabase pour les composants serveur
@@ -90,4 +92,33 @@ export const updateSession = async (request: NextRequest) => {
   // Met à jour la session
   await supabase.auth.getUser();
   return response;
+};
+
+export const authOptions: NextAuthOptions = {
+  providers: [],
+  callbacks: {
+    async session({ session, token }) {
+      if (session?.user) {
+        // Récupérer le rôle de l'utilisateur depuis Supabase
+        const supabase = createSupabaseClient();
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+
+        if (data && !error) {
+          session.user.role = data.role;
+        } else {
+          session.user.role = 'user';
+        }
+      }
+      return session;
+    },
+  },
+  pages: {
+    signIn: '/auth/signin',
+    signOut: '/auth/signout',
+    error: '/auth/error',
+  },
 }; 

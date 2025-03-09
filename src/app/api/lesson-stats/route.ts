@@ -64,16 +64,26 @@ export async function GET(req: NextRequest) {
     } 
     // Récupérer les statistiques pour toutes les leçons d'une formation
     else if (formationId) {
-      // D'abord, récupérer toutes les leçons de la formation
+      // D'abord, récupérer les chapitres de la formation
+      const { data: chapters, error: chaptersError } = await supabase
+        .from('chapters')
+        .select('id')
+        .eq('formation_id', formationId);
+      
+      if (chaptersError) {
+        return NextResponse.json(
+          { error: 'Erreur lors de la récupération des chapitres' },
+          { status: 500 }
+        );
+      }
+      
+      const chapterIds = chapters.map(chapter => chapter.id);
+      
+      // Ensuite, récupérer toutes les leçons des chapitres
       const { data: lessons, error: lessonsError } = await supabase
         .from('lessons')
         .select('id')
-        .in('chapter_id', (query) => {
-          query
-            .from('chapters')
-            .select('id')
-            .eq('formation_id', formationId);
-        });
+        .in('chapter_id', chapterIds);
       
       if (lessonsError) {
         return NextResponse.json(

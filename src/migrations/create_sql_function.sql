@@ -9,4 +9,12 @@ AS $$
 BEGIN
   RETURN QUERY EXECUTE query;
 END;
-$$; 
+$$;
+
+-- Fonction pour exécuter du SQL dynamique
+CREATE OR REPLACE FUNCTION public.exec_sql(sql text)
+RETURNS void AS $$
+BEGIN
+  EXECUTE sql;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER; 

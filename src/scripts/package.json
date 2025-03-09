@@ -4,10 +4,11 @@
   "description": "Scripts de migration pour la base de données Supabase",
   "main": "run_migration.js",
   "scripts": {
-    "migrate": "node run_migration.js"
+    "migrate": "node run_migrations.js"
   },
   "dependencies": {
     "dotenv": "^16.3.1",
-    "node-fetch": "^2.7.0"
-  }
+    "node-fetch": "^3.3.2"
+  },
+  "type": "module"
 } 

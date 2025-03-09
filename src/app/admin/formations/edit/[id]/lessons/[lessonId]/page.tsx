@@ -43,6 +43,7 @@ import {
   X,
   Eye,
   EyeOff,
+  Puzzle,
 } from 'lucide-react';
 import Link from 'next/link';
 import ContentEditor from '@/components/editor/ContentEditor';
@@ -80,6 +81,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import ExerciseBlock from '@/components/editor/ExerciseBlock';
+import ExerciseCreator, { Exercise } from '@/components/editor/ExerciseCreator';
 
 // Schéma de validation pour la leçon
 const lessonSchema = z.object({
@@ -111,6 +114,12 @@ interface LessonVersion {
   created_at: string;
   change_summary: string | null;
   created_by: string | null;
+  content: string;
+  title: string;
+  description: string | null;
+  video_url: string | null;
+  audio_url: string | null;
+  duration: number;
 }
 
 /**
@@ -131,7 +140,14 @@ export default function EditLessonPage() {
   const [selectedVersion, setSelectedVersion] = useState<LessonVersion | null>(null);
   const [isVersionDialogOpen, setIsVersionDialogOpen] = useState(false);
   const [changeSummary, setChangeSummary] = useState('');
-  const [showQuizPreviews, setShowQuizPreviews] = useState(true);
+  const [showQuizPreviews, setShowQuizPreviews] = useState(false);
+  
+  // Nouveaux états pour les exercices
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
+  const [isExerciseDialogOpen, setIsExerciseDialogOpen] = useState(false);
+  const [isEditingExercise, setIsEditingExercise] = useState(false);
+  const [showExercisePreviews, setShowExercisePreviews] = useState(false);
   
   const router = useRouter();
   const params = useParams();
@@ -258,6 +274,31 @@ export default function EditLessonPage() {
     }
   }, [lessonId, formationId, form, router]);
   
+  // Fonction pour extraire les exercices du contenu
+  useEffect(() => {
+    if (content.includes('EXERCISE_DATA:')) {
+      const exerciseRegex = /EXERCISE_DATA:(\{.*?\}):EXERCISE_DATA_END/g;
+      const matches = [];
+      let match;
+      let contentCopy = content;
+      
+      while ((match = exerciseRegex.exec(contentCopy)) !== null) {
+        matches.push(match);
+      }
+      
+      const extractedExercises = matches.map(match => {
+        try {
+          return JSON.parse(match[1]);
+        } catch (e) {
+          console.error('Erreur lors du parsing de l\'exercice:', e);
+          return null;
+        }
+      }).filter(Boolean) as Exercise[];
+      
+      setExercises(extractedExercises);
+    }
+  }, [content]);
+  
   // Soumettre le formulaire avec un résumé des modifications
   const onSubmit = async (values: LessonFormValues) => {
     try {
@@ -283,7 +324,7 @@ export default function EditLessonPage() {
       const values = form.getValues();
       const supabase = createClient();
       
-      // Préparation du contenu avec les quiz intégrés
+      // Préparation du contenu avec les quiz et exercices intégrés
       let finalContent = content;
       
       // Mettre à jour la leçon
@@ -473,6 +514,11 @@ export default function EditLessonPage() {
     setShowQuizPreviews(!showQuizPreviews);
   };
   
+  // Fonction pour basculer l'affichage des prévisualisations d'exercices
+  const toggleExercisePreviews = () => {
+    setShowExercisePreviews(!showExercisePreviews);
+  };
+  
   // Gérer le changement de contenu
   const handleContentChange = (html: string) => {
     setContent(html);
@@ -660,6 +706,64 @@ export default function EditLessonPage() {
     return parts.join('');
   };
 
+  // Fonction pour remplacer les placeholders d'exercices par des composants ExerciseBlock
+  const renderContentWithExerciseBlocks = (htmlContent: string) => {
+    if (!htmlContent) return '';
+    
+    // Remplacer les placeholders d'exercices par les composants ExerciseBlock
+    const exerciseRegex = /<div class="exercise-container" data-exercise-id="([^"]+)">([\s\S]*?)<!-- EXERCISE_DATA:([\s\S]*?):EXERCISE_DATA_END -->([\s\S]*?)<\/div>/g;
+    
+    let lastIndex = 0;
+    let parts = [];
+    let match;
+    
+    // Cloner le contenu pour éviter les problèmes de référence
+    let content = htmlContent;
+    
+    // Analyser le contenu pour trouver les exercices
+    while ((match = exerciseRegex.exec(content)) !== null) {
+      // Ajouter le contenu avant l'exercice
+      parts.push(content.substring(lastIndex, match.index));
+      
+      // Extraire l'ID de l'exercice et les données
+      const exerciseId = match[1];
+      const exerciseDataString = match[3];
+      
+      try {
+        // Trouver l'exercice correspondant dans la liste
+        const exerciseData = JSON.parse(exerciseDataString);
+        const exercise = exercises.find(e => e.id === exerciseId) || exerciseData;
+        
+        // Ajouter un placeholder pour l'exercice
+        if (showExercisePreviews) {
+          parts.push(`<div id="exercise-placeholder-${exerciseId}" class="exercise-placeholder"></div>`);
+        } else {
+          parts.push(`<div class="border-2 border-dashed border-primary/20 p-4 my-4 rounded-md">
+            <div class="flex items-center space-x-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <path d="M12 18v-6"/>
+                <path d="m9 15 3 3 3-3"/>
+              </svg>
+              <span class="font-medium">Exercice: ${exercise.title || 'Sans titre'}</span>
+            </div>
+          </div>`);
+        }
+      } catch (e) {
+        console.error('Erreur lors du parsing des données de l\'exercice:', e);
+        parts.push(match[0]); // Conserver le HTML original en cas d'erreur
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Ajouter le reste du contenu
+    parts.push(content.substring(lastIndex));
+    
+    return parts.join('');
+  };
+
   // Fonction qui sera appelée après le rendu pour injecter les composants QuizBlock
   useEffect(() => {
     if (showQuizPreviews) {
@@ -698,7 +802,7 @@ export default function EditLessonPage() {
       });
       
       // Ajouter un écouteur d'événements pour les actions sur les quiz
-      const handleEditQuiz = (event: CustomEvent<string>) => {
+      const handleEditQuizFromEvent = (event: CustomEvent<string>) => {
         const quizId = event.detail;
         const quiz = quizzes.find(q => q.id === quizId);
         if (quiz) {
@@ -706,13 +810,144 @@ export default function EditLessonPage() {
         }
       };
       
-      document.addEventListener('editQuiz', handleEditQuiz as any);
+      document.addEventListener('editQuiz', handleEditQuizFromEvent as any);
       
       return () => {
-        document.removeEventListener('editQuiz', handleEditQuiz as any);
+        document.removeEventListener('editQuiz', handleEditQuizFromEvent as any);
       };
     }
   }, [quizzes, showQuizPreviews]);
+
+  // Fonction qui sera appelée après le rendu pour injecter les composants ExerciseBlock
+  useEffect(() => {
+    if (showExercisePreviews) {
+      // Pour chaque exercice, trouver le placeholder et injecter le composant
+      exercises.forEach(exercise => {
+        const placeholder = document.getElementById(`exercise-placeholder-${exercise.id}`);
+        if (placeholder) {
+          // Créer un élément temporaire pour injecter le composant
+          const tempContainer = document.createElement('div');
+          tempContainer.className = 'exercise-container';
+          placeholder.appendChild(tempContainer);
+          
+          // Rendre le composant ExerciseBlock dans l'élément temporaire
+          const exerciseBlock = document.createElement('div');
+          exerciseBlock.innerHTML = `
+            <div class="border-2 border-dashed border-primary/20 p-4 my-2 rounded-md">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary">
+                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <path d="M12 18v-6"/>
+                    <path d="m9 15 3 3 3-3"/>
+                  </svg>
+                  <span class="font-medium">Exercice: ${exercise.title || 'Sans titre'}</span>
+                </div>
+                <div>
+                  <button class="text-xs text-primary hover:underline" onclick="document.dispatchEvent(new CustomEvent('editExercise', { detail: '${exercise.id}' }))">
+                    Éditer
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+          tempContainer.appendChild(exerciseBlock);
+        }
+      });
+      
+      // Ajouter un écouteur d'événements pour les actions sur les exercices
+      const handleEditExerciseFromEvent = (event: CustomEvent<string>) => {
+        const exerciseId = event.detail;
+        const exercise = exercises.find(e => e.id === exerciseId);
+        if (exercise) {
+          handleEditExercise(exercise);
+        }
+      };
+      
+      document.addEventListener('editExercise', handleEditExerciseFromEvent as any);
+      
+      return () => {
+        document.removeEventListener('editExercise', handleEditExerciseFromEvent as any);
+      };
+    }
+  }, [exercises, showExercisePreviews]);
+  
+  // Ajouter un nouvel exercice
+  const handleAddExercise = () => {
+    setSelectedExercise({
+      id: uuidv4(),
+      type: 'fill-in-blanks',
+      title: '',
+      instructions: '',
+      items: [
+        { id: uuidv4(), text: 'Texte avec [mot] à compléter', isCorrect: true },
+        { id: uuidv4(), text: 'mot', isCorrect: true },
+      ],
+      explanation: '',
+      points: 1,
+    });
+    setIsEditingExercise(false);
+    setIsExerciseDialogOpen(true);
+  };
+  
+  // Éditer un exercice existant
+  const handleEditExercise = (exercise: Exercise) => {
+    setSelectedExercise(exercise);
+    setIsEditingExercise(true);
+    setIsExerciseDialogOpen(true);
+  };
+  
+  // Enregistrer un exercice
+  const handleSaveExercise = (exercise: Exercise) => {
+    if (isEditingExercise) {
+      // Mettre à jour un exercice existant
+      setExercises(exercises.map(e => e.id === exercise.id ? exercise : e));
+      
+      // Mettre à jour l'exercice dans le contenu
+      const exerciseRegexPattern = '<div class="exercise-container" data-exercise-id="' + exercise.id + '">([\\s\\S]*?)<!-- EXERCISE_DATA:([\\s\\S]*?):EXERCISE_DATA_END -->[\\s\\S]*?</div>';
+      const exerciseRegex = new RegExp(exerciseRegexPattern);
+      
+      const exercisePlaceholder = `<div class="exercise-container" data-exercise-id="${exercise.id}">
+        <div class="exercise-placeholder">
+          <h3>Exercice: ${exercise.title}</h3>
+          <p>Cet exercice sera affiché ici lors de la visualisation de la leçon.</p>
+        </div>
+        <!-- EXERCISE_DATA:${JSON.stringify(exercise)}:EXERCISE_DATA_END -->
+      </div>`;
+      
+      setContent(content.replace(exerciseRegex, exercisePlaceholder));
+    } else {
+      // Ajouter un nouvel exercice
+      setExercises([...exercises, exercise]);
+      
+      // Ajouter l'exercice au contenu
+      const exercisePlaceholder = `<div class="exercise-container" data-exercise-id="${exercise.id}">
+        <div class="exercise-placeholder">
+          <h3>Exercice: ${exercise.title}</h3>
+          <p>Cet exercice sera affiché ici lors de la visualisation de la leçon.</p>
+        </div>
+        <!-- EXERCISE_DATA:${JSON.stringify(exercise)}:EXERCISE_DATA_END -->
+      </div>`;
+      
+      setContent(content + exercisePlaceholder);
+    }
+    
+    setIsExerciseDialogOpen(false);
+    setSelectedExercise(null);
+  };
+  
+  // Supprimer un exercice
+  const handleDeleteExercise = (exerciseId: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet exercice ?')) {
+      setExercises(exercises.filter(e => e.id !== exerciseId));
+      
+      // Supprimer l'exercice du contenu
+      const exerciseRegexPattern = '<div class="exercise-container" data-exercise-id="' + exerciseId + '">([\\s\\S]*?)<!-- EXERCISE_DATA:([\\s\\S]*?):EXERCISE_DATA_END -->[\\s\\S]*?</div>';
+      const exerciseRegex = new RegExp(exerciseRegexPattern);
+      setContent(content.replace(exerciseRegex, ''));
+    }
+  };
   
   if (isLoading) {
     return (
@@ -988,30 +1223,28 @@ export default function EditLessonPage() {
                   
                   <div className="space-y-4">
                     <div className="flex flex-col">
-                      <FormLabel className="mb-2">Quiz</FormLabel>
-                      <Button 
-                        variant="outline" 
-                        type="button"
-                        onClick={handleAddQuiz}
-                      >
-                        <FileQuestion className="h-4 w-4 mr-2" />
-                        Ajouter un quiz
-                      </Button>
-                    </div>
-                    
-                    {/* Liste des quiz */}
-                    {quizzes.length > 0 && (
-                      <div className="space-y-2">
-                        {quizzes.map((quiz) => (
-                          <QuizBlock
-                            key={quiz.id}
-                            quiz={quiz}
-                            onEdit={handleEditQuiz}
-                            onDelete={handleDeleteQuiz}
-                          />
-                        ))}
+                      <FormLabel className="mb-2">Quiz et exercices</FormLabel>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Button 
+                          variant="outline" 
+                          type="button"
+                          className="w-full"
+                          onClick={handleAddQuiz}
+                        >
+                          <FileQuestion className="h-4 w-4 mr-2" />
+                          Ajouter un quiz
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          type="button"
+                          className="w-full"
+                          onClick={handleAddExercise}
+                        >
+                          <Puzzle className="h-4 w-4 mr-2" />
+                          Ajouter un exercice
+                        </Button>
                       </div>
-                    )}
+                    </div>
                   </div>
                 </form>
               </Form>
@@ -1057,6 +1290,46 @@ export default function EditLessonPage() {
               )}
             </CardContent>
           </Card>
+          
+          {/* Ajouter une section pour afficher les exercices */}
+          <Card className="mt-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Exercices interactifs</CardTitle>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={toggleExercisePreviews}
+                >
+                  {showExercisePreviews ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+                  {showExercisePreviews ? 'Masquer' : 'Afficher'}
+                </Button>
+              </div>
+              <CardDescription>
+                Exercices interactifs intégrés dans cette leçon
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {exercises.length === 0 ? (
+                <div className="text-center p-4 border rounded-md">
+                  <p className="text-sm text-muted-foreground">
+                    Aucun exercice n'a encore été ajouté à cette leçon
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {exercises.map(exercise => (
+                    <ExerciseBlock
+                      key={exercise.id}
+                      exercise={exercise}
+                      onEdit={handleEditExercise}
+                      onDelete={handleDeleteExercise}
+                    />
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
         
         <div className="lg:col-span-8">
@@ -1087,7 +1360,7 @@ export default function EditLessonPage() {
                   <div className="border rounded-md p-5 min-h-[500px] prose dark:prose-invert max-w-none">
                     {content ? (
                       <div dangerouslySetInnerHTML={{ 
-                        __html: renderContentWithQuizBlocks(content) 
+                        __html: renderContentWithQuizBlocks(renderContentWithExerciseBlocks(content)) 
                       }} />
                     ) : (
                       <p className="text-gray-500">Aucun contenu à afficher</p>
@@ -1116,6 +1389,27 @@ export default function EditLessonPage() {
               initialQuiz={selectedQuiz}
               onSave={handleSaveQuiz}
               onCancel={() => setIsQuizDialogOpen(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialog pour création/édition d'exercice */}
+      <Dialog open={isExerciseDialogOpen} onOpenChange={setIsExerciseDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditingExercise ? 'Modifier l\'exercice' : 'Créer un nouvel exercice'}
+            </DialogTitle>
+            <DialogDescription>
+              Créez un exercice interactif qui sera inséré dans votre leçon
+            </DialogDescription>
+          </DialogHeader>
+          {selectedExercise && (
+            <ExerciseCreator
+              initialExercise={selectedExercise}
+              onSave={handleSaveExercise}
+              onCancel={() => setIsExerciseDialogOpen(false)}
             />
           )}
         </DialogContent>

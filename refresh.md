@@ -1,4 +1,4 @@
-Le projet contient trop de fichier et de documents potentiellement inutiles comme toutes les requetes SQL créer en racine du fichier, fait un tour de tout le projet pour faire le ménage avant de continuer à developer.
+Le bouton créer la formation ne fonctionne pas.
 
 ---
 

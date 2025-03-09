@@ -84,22 +84,30 @@ const LearnPage = () => {
   const [trackingTimer, setTrackingTimer] = useState<NodeJS.Timeout | null>(null);
   const [timeSpent, setTimeSpent] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isPreview, setIsPreview] = useState(false);
   const formationId = params?.id as string;
+
+  // Vérifier si c'est un aperçu
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    setIsPreview(searchParams.get('preview') === 'true');
+  }, []);
 
   // Initialiser le client Supabase
   const supabase = createClient();
 
   // Vérifier l'authentification
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (status === 'unauthenticated' && !isPreview) {
       router.push(`/formations/${formationId}`);
     }
-  }, [status, router, formationId]);
+  }, [status, router, formationId, isPreview]);
 
   // Charger les données de la formation et des chapitres
   useEffect(() => {
     const fetchFormationData = async () => {
-      if (!formationId || status !== 'authenticated') return;
+      if (!formationId) return;
+      if (status !== 'authenticated' && !isPreview) return;
 
       setLoading(true);
       try {
@@ -135,38 +143,50 @@ const LearnPage = () => {
 
         setChapters(sortedChapters);
 
-        // Récupérer la progression de l'utilisateur
-        const { data: progressData, error: progressError } = await supabase
-          .from('user_progress')
-          .select('*')
-          .eq('user_id', session?.user?.id)
-          .eq('formation_id', formationId);
+        // En mode aperçu, afficher seulement la première leçon
+        if (isPreview && sortedChapters.length > 0 && sortedChapters[0].lessons.length > 0) {
+          setCurrentLesson(sortedChapters[0].lessons[0]);
+          setLoading(false);
+          return;
+        }
 
-        if (progressError) throw progressError;
-        setUserProgress(progressData || []);
+        // Récupérer la progression de l'utilisateur si authentifié
+        if (status === 'authenticated' && session?.user?.id) {
+          const { data: progressData, error: progressError } = await supabase
+            .from('user_progress')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .eq('formation_id', formationId);
 
-        // Définir la leçon actuelle (première non complétée ou première)
-        if (sortedChapters.length > 0 && sortedChapters[0].lessons.length > 0) {
-          let foundCurrentLesson = false;
-          
-          // Parcourir les chapitres et les leçons pour trouver la première leçon non complétée
-          for (const chapter of sortedChapters) {
-            for (const lesson of chapter.lessons) {
-              const progress = progressData?.find(p => p.lesson_id === lesson.id);
-              
-              if (!progress || !progress.is_completed) {
-                setCurrentLesson(lesson);
-                foundCurrentLesson = true;
-                break;
+          if (progressError) throw progressError;
+          setUserProgress(progressData || []);
+
+          // Définir la leçon actuelle (première non complétée ou première)
+          if (sortedChapters.length > 0 && sortedChapters[0].lessons.length > 0) {
+            let foundCurrentLesson = false;
+            
+            // Parcourir les chapitres et les leçons pour trouver la première leçon non complétée
+            for (const chapter of sortedChapters) {
+              for (const lesson of chapter.lessons) {
+                const progress = progressData?.find(p => p.lesson_id === lesson.id);
+                
+                if (!progress || !progress.is_completed) {
+                  setCurrentLesson(lesson);
+                  foundCurrentLesson = true;
+                  break;
+                }
               }
+              if (foundCurrentLesson) break;
             }
-            if (foundCurrentLesson) break;
+            
+            // Si toutes les leçons sont complétées, définir la première leçon comme actuelle
+            if (!foundCurrentLesson) {
+              setCurrentLesson(sortedChapters[0].lessons[0]);
+            }
           }
-          
-          // Si toutes les leçons sont complétées, définir la première leçon comme actuelle
-          if (!foundCurrentLesson) {
-            setCurrentLesson(sortedChapters[0].lessons[0]);
-          }
+        } else if (sortedChapters.length > 0 && sortedChapters[0].lessons.length > 0) {
+          // Si non authentifié, définir la première leçon comme actuelle
+          setCurrentLesson(sortedChapters[0].lessons[0]);
         }
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error);
@@ -181,7 +201,7 @@ const LearnPage = () => {
     };
 
     fetchFormationData();
-  }, [formationId, supabase, session, status]);
+  }, [formationId, supabase, session, status, isPreview]);
 
   // Démarrer le suivi du temps passé sur la leçon
   useEffect(() => {
@@ -322,7 +342,7 @@ const LearnPage = () => {
 
   // Fonction pour mettre à jour la progression
   const updateProgress = async (completed = false) => {
-    if (!currentLesson || !session?.user?.id) return;
+    if (!currentLesson || !session?.user?.id || isPreview) return;
     
     try {
       // Vérifier si une entrée de progression existe déjà
@@ -441,7 +461,7 @@ const LearnPage = () => {
   };
 
   // Si en cours de chargement
-  if (loading || status === 'loading') {
+  if (loading || (status === 'loading' && !isPreview)) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <p>Chargement de la formation...</p>
@@ -449,8 +469,8 @@ const LearnPage = () => {
     );
   }
 
-  // Si l'utilisateur n'est pas authentifié
-  if (status === 'unauthenticated') {
+  // Si l'utilisateur n'est pas authentifié et ce n'est pas un aperçu
+  if (status === 'unauthenticated' && !isPreview) {
     return null; // La redirection est gérée dans le useEffect
   }
 
@@ -470,6 +490,13 @@ const LearnPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {isPreview && (
+        <div className="bg-yellow-100 dark:bg-yellow-900 p-2 text-center">
+          <p className="text-yellow-800 dark:text-yellow-200">
+            Mode aperçu - Inscrivez-vous pour accéder à tout le contenu
+          </p>
+        </div>
+      )}
       <div className="container mx-auto py-6 px-4">
         <div className="flex flex-col lg:flex-row gap-6">
           {/* Sidebar avec la liste des chapitres et leçons */}

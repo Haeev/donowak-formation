@@ -88,19 +88,27 @@ export default async function FormationPage({
         
         <div className="bg-white dark:bg-gray-800 shadow-xl rounded-lg overflow-hidden">
           <div className="h-64 bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-            <svg
-              className="h-32 w-32 text-white"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1.5"
-                d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+            {formation.image_url ? (
+              <img 
+                src={formation.image_url} 
+                alt={formation.title} 
+                className="h-full w-full object-cover"
               />
-            </svg>
+            ) : (
+              <svg
+                className="h-32 w-32 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                />
+              </svg>
+            )}
           </div>
           
           <div className="p-8">
@@ -123,7 +131,7 @@ export default async function FormationPage({
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                {formation.duration} heures
+                {formation.duration || 0} heures
               </div>
               
               <div className="flex items-center">
@@ -226,7 +234,7 @@ export default async function FormationPage({
               
               <div className="flex space-x-3">
                 <Link
-                  href={`/formations/${id}/preview`}
+                  href={`/formations/${id}/learn?preview=true`}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-base font-medium rounded-md shadow-sm text-blue-700 bg-blue-100 hover:bg-blue-200 dark:text-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Aperçu gratuit
