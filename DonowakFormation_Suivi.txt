@@ -3,8 +3,8 @@
 
 ## STACK TECHNIQUE
 - [OK] Frontend : Next.js (React, TypeScript) avec Tailwind CSS
-- [  ] Backend : Next.js API Routes pour gérer les requêtes serveur
-- [  ] Base de données : Supabase (PostgreSQL) - Structure complète
+- [OK] Backend : Next.js API Routes pour gérer les requêtes serveur
+- [OK] Base de données : Supabase (PostgreSQL) - Structure complète
 - [OK] Authentification : Supabase Auth (email/mot de passe)
 - [  ] Authentification : Gestion des rôles (utilisateur, administrateur)
 - [  ] Paiements : Stripe (paiements uniques, abonnements, formations gratuites)
@@ -18,7 +18,7 @@
 - [OK] Connexion via Supabase Auth
 - [OK] Confirmation d'email
 - [  ] Suppression de compte
-- [  ] Dashboard personnel
+- [OK] Dashboard personnel
 - [  ] Voir et modifier son profil (nom, prénom, bio, photo, etc.)
 - [  ] Accéder à la liste des formations disponibles
 - [  ] Voir les formations achetées
@@ -40,13 +40,13 @@
 
 ## STRUCTURE DE LA BASE DE DONNÉES
 - [OK] Table users de base (Supabase Auth)
-- [  ] Extension de la table users (rôle, nom, prénom, bio, photo)
-- [  ] Table formations
-- [  ] Table progressions
-- [  ] Table certificats
-- [  ] Table commentaires
-- [  ] Table transactions
-- [  ] Table blog_articles
+- [OK] Extension de la table users (rôle, nom, prénom, bio, photo)
+- [OK] Table formations
+- [OK] Table progressions
+- [OK] Table certificats
+- [OK] Table commentaires
+- [OK] Table transactions
+- [OK] Table blog_articles
 
 ## DÉVELOPPEMENT & WORKFLOW
 - [OK] Initialiser le projet avec Next.js, Tailwind et TypeScript

@@ -1,546 +1,604 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Database } from '@/types/database.types';
-import { Loader2, BookOpen, Award, Clock, User, ChevronRight, Calendar, Shield, Settings } from 'lucide-react';
+import {
+  Loader2,
+  Book,
+  TrendingUp,
+  Award,
+  UserRound,
+  BarChart,
+  Clock,
+  PlusCircle,
+  GraduationCap,
+  ArrowRight
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Image from 'next/image';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { toast } from '@/components/ui/use-toast';
 
-/**
- * Type pour les formations depuis la base de données
- */
+// Types pour le tableau de bord
 type Formation = Database['public']['Tables']['formations']['Row'];
+type UserProfile = Database['public']['Tables']['profiles']['Row'];
 
-/**
- * Interface pour les formations de l'utilisateur avec des propriétés supplémentaires
- * Étend le type Formation avec des informations de progression
- */
+// Type étendu pour les formations de l'utilisateur avec progression
 interface UserFormation extends Formation {
-  completed: boolean;  // Indique si la formation est terminée
-  progress: number;    // Pourcentage de progression (0-100)
-  lastAccessed?: string; // Date du dernier accès
+  progress: number;
+  lastAccessed?: string;
 }
 
-/**
- * Interface pour les informations de l'utilisateur
- */
-interface UserProfile {
-  id: string;
-  full_name: string | null;
-  email: string;
-  avatar_url: string | null;
-  created_at: string;
-}
-
-/**
- * Page principale du tableau de bord
- * Affiche les formations de l'utilisateur avec leur progression
- */
 export default function DashboardPage() {
-  const [userFormations, setUserFormations] = useState<UserFormation[]>([]);
-  const [formationsLoading, setFormationsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userFormations, setUserFormations] = useState<UserFormation[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
     totalFormations: 0,
+    inProgressFormations: 0,
     completedFormations: 0,
-    totalProgress: 0,
-    certificatesEarned: 0
+    certificatesEarned: 0,
+    averageProgress: 0,
   });
   
   const supabase = createClient();
-
-  // Vérifier l'authentification
+  
   useEffect(() => {
-    const checkAuth = async () => {
+    async function loadDashboardData() {
       try {
-        const { data, error } = await supabase.auth.getSession();
+        setLoading(true);
+        setError(null);
         
-        if (error) {
-          throw error;
+        // 1. Vérifier l'authentification
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        
+        if (authError) {
+          throw new Error('Erreur d\'authentification. Veuillez vous reconnecter.');
         }
         
-        if (!data.session) {
-          console.log("Utilisateur non authentifié, redirection vers la page de connexion");
+        if (!session || !session.user) {
           window.location.href = '/auth/login';
           return;
         }
         
-        setIsAuthenticated(true);
-        setUserId(data.session.user.id);
+        setUser(session.user);
+        const userId = session.user.id;
         
-        // Récupérer le profil de l'utilisateur
-        await fetchUserProfile(data.session.user.id);
+        // 2. Récupérer le profil utilisateur
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .single();
         
-        // Charger les formations de l'utilisateur
-        await fetchUserFormations(data.session.user.id);
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Erreur lors de la récupération du profil:', profileError);
+          // Ne pas bloquer l'expérience à cause d'une erreur de profil
+        }
         
-        setIsCheckingAuth(false);
-      } catch (error) {
-        console.error("Erreur lors de la vérification de l'authentification:", error);
-        setError("Impossible de vérifier votre authentification. Veuillez vous reconnecter.");
-        setIsCheckingAuth(false);
-      }
-    };
-    
-    checkAuth();
-  }, []);
-
-  /**
-   * Récupère le profil de l'utilisateur
-   * @param userId - L'identifiant de l'utilisateur
-   */
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (error) {
-        throw error;
-      }
-      
-      if (data) {
-        setUserProfile(data as UserProfile);
-      }
-    } catch (error) {
-      console.error('Erreur lors de la récupération du profil:', error);
-    }
-  };
-
-  /**
-   * Récupère les formations de l'utilisateur et calcule leur progression
-   * @param userId - L'identifiant de l'utilisateur
-   */
-  const fetchUserFormations = async (userId: string) => {
-    setFormationsLoading(true);
-    try {
-      console.log("Récupération des formations pour l'utilisateur:", userId);
-      
-      // Récupérer les formations achetées par l'utilisateur
-      const { data: userFormationsData, error: userFormationsError } = await supabase
-        .from('user_formations')
-        .select(`
-          formation_id,
-          purchased_at,
-          formations (*)
-        `)
-        .eq('user_id', userId);
-
-      if (userFormationsError) {
-        console.error('Erreur lors de la récupération des formations:', userFormationsError);
-        setFormationsLoading(false);
-        return;
-      }
-
-      console.log("Formations récupérées:", userFormationsData ? userFormationsData.length : 0);
-
-      // Si aucune formation n'est trouvée, terminer le chargement
-      if (!userFormationsData || userFormationsData.length === 0) {
-        setUserFormations([]);
-        setFormationsLoading(false);
-        return;
-      }
-
-      // Récupérer la progression de l'utilisateur pour chaque formation
-      const formationsWithProgress: UserFormation[] = [];
-      let completedCount = 0;
-      let totalProgressPercentage = 0;
-      
-      // Récupérer les certificats de l'utilisateur
-      const { data: certificatesData } = await supabase
-        .from('certificates')
-        .select('*')
-        .eq('user_id', userId);
-      
-      const certificatesCount = certificatesData ? certificatesData.length : 0;
-      
-      for (const item of userFormationsData) {
-        if (item.formations) {
-          // Conversion explicite du type any à Formation
-          const formation = item.formations as unknown as Formation;
-          
-          // Récupérer les leçons de cette formation
-          const { data: chaptersData } = await supabase
-            .from('chapters')
-            .select(`
-              id,
-              lessons (id)
-            `)
-            .eq('formation_id', formation.id);
-          
-          // Calculer le nombre total de leçons et les leçons complétées
-          let totalLessons = 0;
-          let completedLessons = 0;
-          let lastAccessedDate = null;
-          
-          if (chaptersData && chaptersData.length > 0) {
-            for (const chapter of chaptersData) {
-              if (chapter.lessons && Array.isArray(chapter.lessons)) {
-                totalLessons += chapter.lessons.length;
+        setUserProfile(profileData || null);
+        
+        // 3. Récupérer les formations de l'utilisateur et leurs progrès en une seule requête
+        const { data: formationsData, error: formationsError } = await supabase
+          .from('user_formations')
+          .select(`
+            formation_id,
+            purchased_at,
+            formations (*)
+          `)
+          .eq('user_id', userId);
+        
+        if (formationsError) {
+          console.error('Erreur lors de la récupération des formations:', formationsError);
+        }
+        
+        // 4. Récupérer les certificats de l'utilisateur
+        const { data: certificatesData, error: certificatesError } = await supabase
+          .from('certificates')
+          .select('formation_id')
+          .eq('user_id', userId);
+        
+        if (certificatesError) {
+          console.error('Erreur lors de la récupération des certificats:', certificatesError);
+        }
+        
+        const certificateFormationIds = certificatesData?.map(cert => cert.formation_id) || [];
+        
+        // 5. Récupérer la progression de l'utilisateur pour toutes les formations
+        const { data: userProgressData, error: progressError } = await supabase
+          .from('user_progress')
+          .select('*')
+          .eq('user_id', userId);
+        
+        if (progressError) {
+          console.error('Erreur lors de la récupération de la progression:', progressError);
+        }
+        
+        // Transformer les données pour obtenir les formations avec leur progression
+        const formattedFormations: UserFormation[] = [];
+        let totalProgress = 0;
+        
+        if (formationsData && formationsData.length > 0) {
+          for (const item of formationsData) {
+            if (item.formations) {
+              // Filtrer les progrès pour cette formation
+              const formation = item.formations as unknown as Formation;
+              let progress = 0;
+              let lastAccessed: string | undefined;
+              
+              // Une formation est considérée comme complétée si elle a un certificat
+              const isCompleted = certificateFormationIds.includes(formation.id);
+              
+              if (isCompleted) {
+                progress = 100;
+              } else {
+                // Calculer la progression réelle
+                // Note: Cette logique pourrait être optimisée en déplaçant ce calcul côté serveur
+                const { data: chaptersData } = await supabase
+                  .from('chapters')
+                  .select(`
+                    id,
+                    lessons (id)
+                  `)
+                  .eq('formation_id', formation.id);
                 
-                // Récupérer les leçons complétées et la dernière date d'accès
-                for (const lesson of chapter.lessons) {
-                  const { data: progressData } = await supabase
-                    .from('user_progress')
-                    .select('completed, last_accessed')
-                    .eq('user_id', userId)
-                    .eq('lesson_id', lesson.id)
-                    .single();
-                  
-                  if (progressData) {
-                    if (progressData.completed) {
-                      completedLessons++;
-                    }
-                    
-                    if (progressData.last_accessed) {
-                      if (!lastAccessedDate || new Date(progressData.last_accessed) > new Date(lastAccessedDate)) {
-                        lastAccessedDate = progressData.last_accessed;
+                let totalLessons = 0;
+                let completedLessons = 0;
+                let latestAccessTimestamp = 0;
+                
+                if (chaptersData && chaptersData.length > 0) {
+                  for (const chapter of chaptersData) {
+                    if (chapter.lessons && Array.isArray(chapter.lessons)) {
+                      totalLessons += chapter.lessons.length;
+                      
+                      for (const lesson of chapter.lessons) {
+                        const progressEntry = userProgressData?.find(p => p.lesson_id === lesson.id);
+                        
+                        if (progressEntry) {
+                          if (progressEntry.completed) {
+                            completedLessons++;
+                          }
+                          
+                          const accessTimestamp = new Date(progressEntry.last_accessed).getTime();
+                          if (accessTimestamp > latestAccessTimestamp) {
+                            latestAccessTimestamp = accessTimestamp;
+                            lastAccessed = progressEntry.last_accessed;
+                          }
+                        }
                       }
                     }
                   }
                 }
+                
+                progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
               }
+              
+              formattedFormations.push({
+                ...formation,
+                progress,
+                lastAccessed
+              });
+              
+              totalProgress += progress;
             }
           }
-          
-          // Calculer le pourcentage de progression
-          const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
-          const completed = progress === 100;
-          
-          if (completed) {
-            completedCount++;
-          }
-          
-          totalProgressPercentage += progress;
-          
-          // Ajouter la formation avec sa progression à la liste
-          formationsWithProgress.push({
-            ...formation,
-            progress,
-            completed,
-            lastAccessed: lastAccessedDate
-          });
         }
+        
+        // Trier les formations par progression (décroissante) puis par date d'achat (plus récente)
+        formattedFormations.sort((a, b) => {
+          // D'abord les formations en cours (ni 0%, ni 100%)
+          const aInProgress = a.progress > 0 && a.progress < 100;
+          const bInProgress = b.progress > 0 && b.progress < 100;
+          
+          if (aInProgress && !bInProgress) return -1;
+          if (!aInProgress && bInProgress) return 1;
+          
+          // Ensuite par progression (décroissante)
+          if (a.progress !== b.progress) return b.progress - a.progress;
+          
+          // Enfin par date de mise à jour (plus récente)
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        });
+        
+        setUserFormations(formattedFormations);
+        
+        // Calculer les statistiques
+        const averageProgress = formattedFormations.length > 0 
+          ? Math.round(totalProgress / formattedFormations.length) 
+          : 0;
+        
+        const inProgressCount = formattedFormations.filter(f => f.progress > 0 && f.progress < 100).length;
+        const completedCount = formattedFormations.filter(f => f.progress === 100).length;
+        
+        setStats({
+          totalFormations: formattedFormations.length,
+          inProgressFormations: inProgressCount,
+          completedFormations: completedCount,
+          certificatesEarned: certificateFormationIds.length,
+          averageProgress,
+        });
+        
+      } catch (error) {
+        console.error('Erreur lors du chargement du tableau de bord:', error);
+        setError('Une erreur est survenue lors du chargement de vos données. Veuillez réessayer.');
+        // Afficher un toast d'erreur
+        toast({
+          title: "Erreur de chargement",
+          description: "Impossible de charger vos données. Veuillez rafraîchir la page.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
       }
-      
-      // Trier les formations par date de dernier accès (les plus récentes en premier)
-      formationsWithProgress.sort((a, b) => {
-        if (!a.lastAccessed) return 1;
-        if (!b.lastAccessed) return -1;
-        return new Date(b.lastAccessed).getTime() - new Date(a.lastAccessed).getTime();
-      });
-      
-      // Mettre à jour les statistiques
-      setStats({
-        totalFormations: formationsWithProgress.length,
-        completedFormations: completedCount,
-        totalProgress: formationsWithProgress.length > 0 
-          ? Math.round(totalProgressPercentage / formationsWithProgress.length) 
-          : 0,
-        certificatesEarned: certificatesCount
-      });
-      
-      // Mettre à jour l'état avec les formations et leur progression
-      setUserFormations(formationsWithProgress);
-    } catch (error) {
-      console.error('Erreur lors de la récupération des formations:', error);
-    } finally {
-      setFormationsLoading(false);
     }
-  };
-
-  // Afficher un écran de chargement pendant la vérification de l'authentification
-  if (isCheckingAuth) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg">Vérification de votre authentification...</p>
-      </div>
-    );
-  }
-
-  // Afficher un message d'erreur si nécessaire
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
-        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg max-w-md w-full text-center">
-          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Erreur</h2>
-          <p className="mb-6">{error}</p>
-          <Button asChild>
-            <Link href="/auth/login">Se reconnecter</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Afficher un message si l'utilisateur n'a pas de formations
-  if (userFormations.length === 0 && !formationsLoading) {
+    
+    loadDashboardData();
+  }, []);
+  
+  // Afficher l'état de chargement
+  if (loading) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-6">Votre tableau de bord</h1>
+        <h1 className="text-3xl font-bold mb-8">Tableau de Bord</h1>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          {Array(4).fill(0).map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <CardHeader className="pb-2">
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-16 mb-2" />
+                <Skeleton className="h-4 w-3/4" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
         
-        {/* Section de profil utilisateur */}
-        {userProfile && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-            <div className="flex items-center">
-              <div className="relative h-16 w-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mr-4">
-                {userProfile.avatar_url ? (
-                  <Image 
-                    src={userProfile.avatar_url} 
-                    alt={userProfile.full_name || 'Avatar'} 
-                    fill 
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full w-full">
-                    <User className="h-8 w-8 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold">
-                  {userProfile.full_name || 'Utilisateur'}
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">{userProfile.email}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                  Membre depuis {new Date(userProfile.created_at).toLocaleDateString()}
-                </p>
-              </div>
-              <div className="ml-auto flex flex-col gap-2 sm:flex-row">
-                <Button asChild variant="outline">
-                  <Link href="/dashboard/profil" className="flex items-center">
-                    <User className="mr-2 h-4 w-4" />
-                    Modifier mon profil
-                  </Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href="/dashboard/profil?tab=account" className="flex items-center">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Paramètres du compte
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
-                  <Link href="/dashboard/profil?tab=account#delete" className="flex items-center">
-                    <Shield className="mr-2 h-4 w-4" />
-                    Supprimer mon compte
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4">Vos formations</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Vous n'avez pas encore de formations. Découvrez nos formations disponibles et commencez votre apprentissage dès aujourd'hui !
-          </p>
-          <Button asChild>
-            <Link href="/formations">Découvrir les formations</Link>
-          </Button>
+        <h2 className="text-2xl font-semibold mb-4">Vos formations</h2>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array(3).fill(0).map((_, i) => (
+            <Card key={i} className="overflow-hidden">
+              <div className="h-48 bg-gray-200 dark:bg-gray-800 animate-pulse" />
+              <CardContent className="pt-6">
+                <Skeleton className="h-6 w-3/4 mb-4" />
+                <Skeleton className="h-4 w-full mb-6" />
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-2.5 w-full mb-6" />
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
   }
-
-  // Afficher le tableau de bord avec les formations
+  
+  // Afficher l'erreur si elle existe
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-8 text-center">
+          <h2 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">Erreur</h2>
+          <p className="mb-6">{error}</p>
+          <Button onClick={() => window.location.reload()}>Réessayer</Button>
+        </div>
+      </div>
+    );
+  }
+  
+  // Si l'utilisateur n'a pas de formations mais un profil valide, proposer d'explorer le catalogue
+  const showEmptyState = userFormations.length === 0;
+  
+  // Dans le cas où un profil existe mais aucune formation, on peut personnaliser le message
+  const greeting = userProfile?.full_name 
+    ? `Bonjour, ${userProfile.full_name.split(' ')[0]} !` 
+    : "Bienvenue sur votre tableau de bord !";
+  
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Votre tableau de bord</h1>
-      
-      {/* Section de profil utilisateur */}
-      {userProfile && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center">
-            <div className="flex items-center mb-4 md:mb-0">
-              <div className="relative h-16 w-16 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mr-4">
-                {userProfile.avatar_url ? (
-                  <Image 
-                    src={userProfile.avatar_url} 
-                    alt={userProfile.full_name || 'Avatar'} 
-                    fill 
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full w-full">
-                    <User className="h-8 w-8 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              <div>
-                <h2 className="text-xl font-semibold">
-                  {userProfile.full_name || 'Utilisateur'}
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400">{userProfile.email}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                  Membre depuis {new Date(userProfile.created_at).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-            <div className="md:ml-auto flex flex-col sm:flex-row gap-2">
-              <Button asChild variant="outline">
-                <Link href="/dashboard/profil" className="flex items-center">
-                  <User className="mr-2 h-4 w-4" />
-                  Modifier mon profil
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/dashboard/statistiques" className="flex items-center">
-                  <ChevronRight className="mr-2 h-4 w-4" />
-                  Voir mes statistiques
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/dashboard/profil?tab=account" className="flex items-center">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Paramètres du compte
-                </Link>
-              </Button>
-              <Button asChild variant="outline" className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
-                <Link href="/dashboard/profil?tab=account#delete" className="flex items-center">
-                  <Shield className="mr-2 h-4 w-4" />
-                  Supprimer mon compte
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Section de statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900 mr-4">
-              <BookOpen className="h-6 w-6 text-blue-600 dark:text-blue-300" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Formations</p>
-              <p className="text-2xl font-semibold">{stats.totalFormations}</p>
-            </div>
-          </div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{greeting}</h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            {showEmptyState 
+              ? "Commencez votre parcours d'apprentissage dès maintenant." 
+              : `Vous avez ${stats.inProgressFormations} formation${stats.inProgressFormations !== 1 ? 's' : ''} en cours.`}
+          </p>
         </div>
         
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-green-100 dark:bg-green-900 mr-4">
-              <Award className="h-6 w-6 text-green-600 dark:text-green-300" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Formations terminées</p>
-              <p className="text-2xl font-semibold">{stats.completedFormations}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-yellow-100 dark:bg-yellow-900 mr-4">
-              <Clock className="h-6 w-6 text-yellow-600 dark:text-yellow-300" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Progression globale</p>
-              <p className="text-2xl font-semibold">{stats.totalProgress}%</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <div className="flex items-center">
-            <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900 mr-4">
-              <Award className="h-6 w-6 text-purple-600 dark:text-purple-300" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Certificats obtenus</p>
-              <p className="text-2xl font-semibold">{stats.certificatesEarned}</p>
-            </div>
-          </div>
+        <div className="mt-4 md:mt-0 flex space-x-2">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/profil">
+              <UserRound className="mr-2 h-4 w-4" />
+              Profil
+            </Link>
+          </Button>
+          <Button asChild variant="default">
+            <Link href="/formations">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Explorer les formations
+            </Link>
+          </Button>
         </div>
       </div>
       
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        {/* En-tête avec le titre */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Vos formations</h2>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/formations">Découvrir plus de formations</Link>
-          </Button>
-        </div>
+      {/* Cartes de statistiques */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Formations</CardTitle>
+            <Book className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalFormations}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.completedFormations} terminée{stats.completedFormations !== 1 ? 's' : ''}, {stats.inProgressFormations} en cours
+            </p>
+          </CardContent>
+        </Card>
         
-        {/* Affichage des formations ou indicateur de chargement */}
-        {formationsLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Progression moyenne</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.averageProgress}%</div>
+            <div className="mt-2 h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-600 rounded-full" 
+                style={{ width: `${stats.averageProgress}%` }}
+              ></div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Temps d'apprentissage</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {showEmptyState ? "0h" : `${Math.round(stats.totalFormations * 3.5)}h`}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Estimé selon votre progression
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Certificats</CardTitle>
+            <Award className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.certificatesEarned}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.certificatesEarned > 0 
+                ? `Sur ${stats.totalFormations} formation${stats.totalFormations !== 1 ? 's' : ''}` 
+                : "Terminez une formation pour obtenir un certificat"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+      
+      {/* État zéro: Aucune formation */}
+      {showEmptyState ? (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 mb-4">
+            <GraduationCap className="h-8 w-8 text-blue-600 dark:text-blue-400" />
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Liste des formations avec leur progression */}
-            {userFormations.map((formation) => (
-              <div key={formation.id} className="bg-gray-50 dark:bg-gray-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                <div className="h-32 bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
-                  {formation.image_url ? (
-                    <div className="relative w-full h-full">
-                      <Image 
+          <h2 className="text-2xl font-bold mb-2">Commencez votre apprentissage</h2>
+          <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto mb-6">
+            Vous n'avez pas encore de formations. Explorez notre catalogue et commencez votre parcours d'apprentissage dès maintenant.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2 max-w-md mx-auto">
+            <Button asChild variant="default" size="lg">
+              <Link href="/formations">
+                Découvrir les formations
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link href="/dashboard/statistiques">
+                Voir vos statistiques
+              </Link>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Section des formations récentes/en cours */}
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-semibold">Vos formations</h2>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/dashboard/formations" className="flex items-center">
+                  Voir toutes
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </div>
+            
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {userFormations.slice(0, 3).map((formation) => (
+                <Card key={formation.id} className="overflow-hidden flex flex-col h-full">
+                  <div className="h-48 bg-gradient-to-r from-blue-500 to-indigo-600 flex items-center justify-center">
+                    {formation.image_url ? (
+                      <img 
                         src={formation.image_url} 
                         alt={formation.title} 
-                        fill 
-                        className="object-cover"
+                        className="w-full h-full object-cover"
                       />
+                    ) : (
+                      <Book className="h-16 w-16 text-white" />
+                    )}
+                  </div>
+                  <CardContent className="flex-1 flex flex-col pt-6">
+                    <h3 className="text-xl font-semibold mb-2 line-clamp-1">{formation.title}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
+                      {formation.description}
+                    </p>
+                    
+                    <div className="mt-auto space-y-4">
+                      <div>
+                        <div className="flex items-center justify-between text-sm mb-1">
+                          <span className="text-gray-600 dark:text-gray-400">Progression</span>
+                          <span className="font-medium">{formation.progress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full ${
+                              formation.progress === 100
+                                ? 'bg-green-600 dark:bg-green-500'
+                                : 'bg-blue-600 dark:bg-blue-500'
+                            }`}
+                            style={{ width: `${formation.progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2">
+                        <Button asChild className="flex-1">
+                          <Link href={`/formations/${formation.id}`}>
+                            {formation.progress === 0 ? 'Commencer' : 
+                              formation.progress === 100 ? 'Revoir' : 'Continuer'}
+                          </Link>
+                        </Button>
+                        
+                        {formation.progress === 100 && (
+                          <Button asChild variant="outline">
+                            <Link href={`/dashboard/certificats/${formation.id}`}>
+                              <Award className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <BookOpen className="h-12 w-12 text-white" />
-                  )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+          
+          {/* Carte des statistiques et recommandations */}
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Statistiques détaillées</CardTitle>
+                <CardDescription>Suivez votre progression d'apprentissage</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center">
+                  <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center mr-4 flex-shrink-0">
+                    <BarChart className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium mb-1">Progression globale</h4>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-blue-600 rounded-full" 
+                          style={{ width: `${stats.averageProgress}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-sm font-medium">{stats.averageProgress}%</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg mb-2">{formation.title}</h3>
-                  
-                  {/* Dernière activité */}
-                  {formation.lastAccessed && (
-                    <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 mb-3">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      <span>Dernière activité: {new Date(formation.lastAccessed).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                  
-                  {/* Barre de progression */}
-                  <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full mb-2">
-                    <div 
-                      className={`h-full rounded-full ${
-                        formation.completed 
-                          ? 'bg-green-500' 
-                          : formation.progress > 0 
-                            ? 'bg-blue-500' 
-                            : 'bg-gray-300 dark:bg-gray-500'
-                      }`}
-                      style={{ width: `${formation.progress}%` }}
-                    ></div>
+                
+                <div className="ml-20 space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex justify-between">
+                    <span>Formations terminées:</span>
+                    <span className="font-medium">{stats.completedFormations} / {stats.totalFormations}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    <span>Progression: {formation.progress}%</span>
-                    {formation.completed && <span className="text-green-500">Terminé ✓</span>}
+                  <div className="flex justify-between">
+                    <span>Formations en cours:</span>
+                    <span className="font-medium">{stats.inProgressFormations}</span>
                   </div>
-                  
-                  {/* Bouton pour accéder à la formation */}
-                  <Button asChild className="w-full">
-                    <Link href={`/dashboard/formations/${formation.id}`}>
-                      {formation.progress > 0 ? 'Continuer' : 'Commencer'}
+                  <div className="flex justify-between">
+                    <span>Certificats obtenus:</span>
+                    <span className="font-medium">{stats.certificatesEarned}</span>
+                  </div>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button asChild variant="ghost" className="w-full">
+                  <Link href="/dashboard/statistiques" className="flex items-center justify-center">
+                    Statistiques détaillées
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Recommandations</CardTitle>
+                <CardDescription>Basées sur votre profil d'apprentissage</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {stats.inProgressFormations > 0 ? (
+                  <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                    <h3 className="font-medium mb-2">Continuez votre progression</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Vous avez {stats.inProgressFormations} formation{stats.inProgressFormations !== 1 ? 's' : ''} en cours. Continuez pour obtenir votre certificat !
+                    </p>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/dashboard/formations?filter=in-progress">
+                        Reprendre
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-4 border rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                    <h3 className="font-medium mb-2">Découvrez de nouvelles formations</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Explorez notre catalogue pour trouver votre prochaine formation.
+                    </p>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/formations">
+                        Explorer
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+                
+                {stats.completedFormations > 0 && (
+                  <div className="p-4 border rounded-lg bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
+                    <h3 className="font-medium mb-2">Vos réussites</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      Vous avez terminé {stats.completedFormations} formation{stats.completedFormations !== 1 ? 's' : ''}. Consultez vos certificats !
+                    </p>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href="/dashboard/certificats">
+                        Voir les certificats
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+                
+                <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+                  <h3 className="font-medium mb-2">Personnalisez votre profil</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    Complétez votre profil pour une expérience personnalisée.
+                  </p>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href="/dashboard/profil">
+                      Compléter
                     </Link>
                   </Button>
                 </div>
-              </div>
-            ))}
+              </CardContent>
+            </Card>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 } 

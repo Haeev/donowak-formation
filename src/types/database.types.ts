@@ -21,6 +21,10 @@ export interface Database {
           deleted_at: string | null
           phone: string | null
           bio: string | null
+          website: string | null
+          location: string | null
+          job_title: string | null
+          role: 'user' | 'admin'
         }
         Insert: {
           id: string
@@ -33,6 +37,10 @@ export interface Database {
           deleted_at?: string | null
           phone?: string | null
           bio?: string | null
+          website?: string | null
+          location?: string | null
+          job_title?: string | null
+          role?: 'user' | 'admin'
         }
         Update: {
           id?: string
@@ -45,6 +53,10 @@ export interface Database {
           deleted_at?: string | null
           phone?: string | null
           bio?: string | null
+          website?: string | null
+          location?: string | null
+          job_title?: string | null
+          role?: 'user' | 'admin'
         }
         Relationships: [
           {
@@ -229,10 +241,27 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: {
+          user_id: string
+        }
+        Returns: boolean
+      }
+      promote_to_admin: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      demote_from_admin: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      user_role: 'user' | 'admin'
     }
     CompositeTypes: {
       [_ in never]: never
