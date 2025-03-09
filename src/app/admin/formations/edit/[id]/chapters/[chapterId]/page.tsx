@@ -201,6 +201,7 @@ export default function EditChapterPage() {
           content: '# Nouvelle leçon\n\nContenu de la leçon',
           position: nextPosition,
           duration: 0,
+          audio_url: null,
         })
         .select();
       
@@ -523,7 +524,7 @@ export default function EditChapterPage() {
                                     <div className="flex items-center mt-2 text-sm text-gray-500">
                                       <div className="flex items-center mr-4">
                                         <FileText className="h-3 w-3 mr-1" />
-                                        <span>Contenu: {lesson.content ? 'Oui' : 'Non'}</span>
+                                        <span>Description: {lesson.description ? 'Oui' : 'Non'}</span>
                                       </div>
                                       {lesson.video_url && (
                                         <div className="flex items-center mr-4">
